@@ -70,8 +70,11 @@ def fix_plate(extraction: ExtractorResult):
     extraction.text = text
 
 
-def validate_plate(extraction: ExtractorResult, re_compiled=polish_plate_regex) -> bool:
-    return re_compiled.match(extraction.text) is not None and extraction.confidence >= 0.7
+def validate_plate(extraction: ExtractorResult,
+                   re_compiled=polish_plate_regex,
+                   required_confidence: float = 0.7
+                   ) -> bool:
+    return re_compiled.match(extraction.text) is not None and extraction.confidence >= required_confidence
 
 
 def convert_extractor_bbox_to_whole_image(finder_bbox_xyxy: tuple[int, int, int, int],
@@ -83,7 +86,9 @@ def convert_extractor_bbox_to_whole_image(finder_bbox_xyxy: tuple[int, int, int,
 
 def detect_plates(image: NDArray,
                   finder: YoloLicensePlateFinder,
-                  extractor: TextExtractor
+                  extractor: TextExtractor,
+                  verification_regex=polish_plate_regex,
+                  required_confidence: float = 0.7
                   ) -> list[tuple[FinderResult, list[ExtractorResult]]]:
     found_boxes = finder(image)
     out = []
@@ -94,7 +99,7 @@ def detect_plates(image: NDArray,
         found_text = extractor(cropped_image)
         for f in found_text:
             fix_plate(f)
-        found_text = list(filter(lambda x: validate_plate(x), found_text))
+        found_text = list(filter(lambda x: validate_plate(x, verification_regex, required_confidence), found_text))
 
         out.append((box, found_text))
 
