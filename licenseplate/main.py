@@ -3,56 +3,57 @@ from typing import NoReturn
 from datetime import datetime
 from time import sleep
 
-import cv2
-
-from .detection import YoloLicensePlateFinder, TextExtractor, detect_plates, visualise, polish_plate_regex
+from .detection import LicensePlateFinder, TextExtractor, LicensePlateValidator, detect_plates
 from .camera.base import CameraInterface
+from .action.base import ActionInterface
+
 
 class DetectionLoop:
 
     def __init__(self,
-                 finder: YoloLicensePlateFinder,
+                 finder: LicensePlateFinder,
                  extractor: TextExtractor,
+                 validator: LicensePlateValidator,
                  camera_interface: CameraInterface,
-                 verification_regex=polish_plate_regex,
-                 required_confidence: float = 0.7,
-                 img_output_directory: Path = Path(__file__).parents[1] / 'detected'
+                 action_interface: ActionInterface,
+                 max_fps: int = 30
                  ):
         self.finder = finder
         self.extractor = extractor
+        self.validator = validator
         self.camera = camera_interface
-        self.verification_regex = verification_regex
-        self.confidence = required_confidence
-        self.img_out = img_output_directory
-
-        if not img_output_directory.exists():
-            img_output_directory.mkdir()
+        self.action = action_interface
+        self.max_fps = max_fps
 
     def loop(self) -> NoReturn:
+        fps_sum = 0.0
+        fps_count = 0
+
         while True:
             start = datetime.now()
             frame = self.camera.get_frame()
-            plates = detect_plates(frame, self.finder, self.extractor, self.verification_regex, self.confidence)
+            plates = detect_plates(frame, self.finder, self.extractor, self.validator)
             if plates:
-                visualised = visualise(frame, plates)
-                now = datetime.now()
-                cv2.imwrite(str(self.img_out / f"{now.isoformat()}.jpg"), visualised)
+                self.action.action_if_found(frame, plates)
             lasted = (datetime.now() - start).total_seconds()
-            print(f"FPS: {1 / lasted}")
-            if 1/30 - lasted > 0:
-                sleep(1/30 - lasted)
+            fps_count += 1
+            fps_sum += 1 / lasted
+            print(f"FPS now: {1 / lasted}, FPS average: {fps_sum / fps_count}")
+            if 1/self.max_fps - lasted > 0:
+                sleep(1/self.max_fps - lasted)
 
     def __call__(self) -> NoReturn:
         self.loop()
 
 
 if __name__ == '__main__':
-    from .camera.raspberry import RaspberryCameraInterface
-    camera = RaspberryCameraInterface()
-    camera.initiate()
+    from .camera.macos import MacOSCameraInterface
+    from .action.localsave import LocalSaveInterface
     loop = DetectionLoop(
-        YoloLicensePlateFinder(Path(__file__).parents[1] / 'runs/detect/train/weights/best.pt'),
+        LicensePlateFinder(Path(__file__).parents[1] / 'runs/detect/train/weights/best.pt'),
         TextExtractor(),
-        camera,
+        LicensePlateValidator(),
+        MacOSCameraInterface(),
+        LocalSaveInterface(Path(__file__).parents[1] / 'detected', show_debug_boxes=True)
     )
     loop()

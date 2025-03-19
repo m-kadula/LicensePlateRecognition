@@ -1,6 +1,7 @@
 from pathlib import Path
 from dataclasses import dataclass
 import re
+from string import ascii_uppercase, digits
 
 from numpy.typing import NDArray
 import cv2
@@ -14,7 +15,7 @@ class FinderResult:
     box: tuple[int, int, int, int]
 
 
-class YoloLicensePlateFinder:
+class LicensePlateFinder:
 
     def __init__(self, weights_path: Path):
         self.model = YOLO(weights_path)
@@ -43,12 +44,18 @@ class ExtractorResult:
 
 class TextExtractor:
 
-    def __init__(self):
+    def __init__(self, allow_list: str = ascii_uppercase + digits):
+        self.allow_list = allow_list
         self.reader = easyocr.Reader(["en"])
 
     def run(self, image: NDArray) -> list[ExtractorResult]:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        detected = self.reader.readtext(gray)
+        image = image.copy()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        #                               cv2.THRESH_BINARY, 11, 2)
+        sharpened = cv2.GaussianBlur(image, (0, 0), 3)
+        image = cv2.addWeighted(image, 1.5, sharpened, -0.5, 0)
+        detected = self.reader.readtext(image, allowlist=self.allow_list, decoder="beamsearch")
         out = []
 
         for bbox, text, confidence in detected:
@@ -61,20 +68,20 @@ class TextExtractor:
         return self.run(image)
 
 
-polish_plate_regex = re.compile(r'[A-Z]{1,3} ?[0-9A-Z]{3,5}')
+class LicensePlateValidator:
+
+    def __init__(self, plate_regex: str = r'[A-Z]{1,3} ?[0-9A-Z]{3,5}', required_confidence: float = 0.5):
+        self.plate_regex = re.compile(plate_regex)
+        self.required_confidence = required_confidence
+
+    def validate(self, extraction: ExtractorResult) -> bool:
+        return self.plate_regex.match(extraction.text) is not None and extraction.confidence >= self.required_confidence
 
 
 def fix_plate(extraction: ExtractorResult):
     text = extraction.text
     text = text.replace('O', '0').replace(' ', '').strip()
     extraction.text = text
-
-
-def validate_plate(extraction: ExtractorResult,
-                   re_compiled=polish_plate_regex,
-                   required_confidence: float = 0.7
-                   ) -> bool:
-    return re_compiled.match(extraction.text) is not None and extraction.confidence >= required_confidence
 
 
 def convert_extractor_bbox_to_whole_image(finder_bbox_xyxy: tuple[int, int, int, int],
@@ -85,10 +92,9 @@ def convert_extractor_bbox_to_whole_image(finder_bbox_xyxy: tuple[int, int, int,
 
 
 def detect_plates(image: NDArray,
-                  finder: YoloLicensePlateFinder,
+                  finder: LicensePlateFinder,
                   extractor: TextExtractor,
-                  verification_regex=polish_plate_regex,
-                  required_confidence: float = 0.7
+                  validator: LicensePlateValidator,
                   ) -> list[tuple[FinderResult, list[ExtractorResult]]]:
     found_boxes = finder(image)
     out = []
@@ -99,16 +105,19 @@ def detect_plates(image: NDArray,
         found_text = extractor(cropped_image)
         for f in found_text:
             fix_plate(f)
-        found_text = list(filter(lambda x: validate_plate(x, verification_regex, required_confidence), found_text))
+        found_text = list(filter(lambda x: validator.validate(x), found_text))
 
         out.append((box, found_text))
 
     return out
 
 
-def visualise(image: NDArray, results: list[tuple[FinderResult, list[ExtractorResult]]]) -> NDArray:
+def visualise(image: NDArray, results: list[tuple[FinderResult, list[ExtractorResult]]], show_debug_boxes=False) -> NDArray:
     image = image.copy()
     for finder_result, extractor_results in results:
+        if show_debug_boxes:
+            debug_box = finder_result.box
+            cv2.rectangle(image, (debug_box[0], debug_box[1]), (debug_box[2], debug_box[3]), (255, 0, 0), 2)
         for extractor_result in extractor_results:
             box = convert_extractor_bbox_to_whole_image(finder_result.box, extractor_result.box)
             confidence = extractor_result.confidence
