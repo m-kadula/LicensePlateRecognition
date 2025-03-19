@@ -6,7 +6,6 @@ from .base import CameraInterface
 
 
 class MacOSCameraInterface(CameraInterface):
-
     def __init__(self, device: int = 0):
         self.device = device
         self.cap = cv2.VideoCapture(self.device)

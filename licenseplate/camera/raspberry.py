@@ -6,7 +6,6 @@ from . import base
 
 
 class RaspberryCameraInterface(base.CameraInterface):
-
     def __init__(self):
         self.picamera = Picamera2()
         self.picamera.configure(self.picamera.create_preview_configuration())
