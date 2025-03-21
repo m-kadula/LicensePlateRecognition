@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import NoReturn
 from datetime import datetime
@@ -12,7 +13,7 @@ def detection_iteration(
     detection_model: PlateDetectionModel,
     camera: CameraInterface,
     action: ActionInterface,
-) -> tuple[datetime, float]:
+) -> tuple[datetime, float, int, int]:
     frame_time = datetime.now()
 
     frame = camera.get_frame()
@@ -24,32 +25,48 @@ def detection_iteration(
 
     lasted = (datetime.now() - frame_time).total_seconds()
 
-    return frame_time, lasted
+    return frame_time, lasted, len(plates), sum(len(x[1]) for x in plates)
 
 
 def detection_loop(
     detection_model: PlateDetectionModel,
     camera: CameraInterface,
     action: ActionInterface,
+    logger: logging.Logger | None = None,
     max_fps: int = 30,
 ) -> NoReturn:
     fps_sum = 0.0
-    fps_count = 0
+    iteration = 0
 
-    while True:
-        frame_time, lasted = detection_iteration(detection_model, camera, action)
+    try:
+        while True:
+            frame_time, lasted, detected_plates, detected_text = detection_iteration(
+                detection_model, camera, action
+            )
 
-        fps_count += 1
-        fps_sum += 1 / lasted
-        print(f"FPS now: {1 / lasted}, FPS average: {fps_sum / fps_count}")
-        if 1 / max_fps - lasted > 0:
-            sleep(1 / max_fps - lasted)
+            iteration += 1
+            fps_sum += 1 / lasted
+            if logger is not None:
+                logger.info(
+                    f"Iteration: {iteration}, FPS now: {round(1 / lasted, 2)}, FPS average: {round(fps_sum / iteration, 2)}\n"
+                    f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
+                )
+            if 1 / max_fps - lasted > 0:
+                sleep(1 / max_fps - lasted)
+    except KeyboardInterrupt:
+        if logger is not None:
+            logger.info(
+                f"Loop ended after {iteration} iterations with the average of {round(fps_sum / iteration, 2)} FPS."
+            )
 
 
 if __name__ == "__main__":
+    import sys
+
     from .camera.macos import MacOSCameraInterface
     from .action.localsave import LocalSaveInterface
-    from .preprocessing import preprocess_polish_license_plate, preprocess_identity
+    from .preprocessors import preprocess_polish_license_plate, preprocess_identity
+    from .logger import get_logger
 
     model = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
@@ -63,4 +80,5 @@ if __name__ == "__main__":
         LocalSaveInterface(
             Path(__file__).parents[1] / "detected", show_debug_boxes=True
         ),
+        logger=get_logger("detection_loop", sys.stdout),
     )

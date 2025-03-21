@@ -21,7 +21,7 @@ class LicensePlateFinder:
         self.model = YOLO(weights_path)
 
     def run(self, image: NDArray) -> list[FinderResult]:
-        result = self.model(image)[0]
+        result = self.model(image, verbose=False)[0]
         out = []
 
         for box in result.boxes:
