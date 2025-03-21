@@ -80,14 +80,14 @@ class LicensePlateValidator:
 
 
 class PlateDetectionModel:
-
-    def __init__(self,
-                 yolo_weights_path: Path,
-                 preprocessor: Callable[[NDArray], NDArray],
-                 text_allow_list: str = ascii_uppercase + digits,
-                 plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
-                 required_confidence: float = 0.5
-                 ):
+    def __init__(
+        self,
+        yolo_weights_path: Path,
+        preprocessor: Callable[[NDArray], NDArray],
+        text_allow_list: str = ascii_uppercase + digits,
+        plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
+        required_confidence: float = 0.5,
+    ):
         self.finder = LicensePlateFinder(yolo_weights_path)
         self.extractor = TextExtractor(text_allow_list)
         self.preprocessor = preprocessor
@@ -99,7 +99,9 @@ class PlateDetectionModel:
         text = text.replace("O", "0").replace(" ", "").strip()
         extraction.text = text
 
-    def detect_plates(self, image: NDArray) -> list[tuple[FinderResult, list[ExtractorResult]]]:
+    def detect_plates(
+        self, image: NDArray
+    ) -> list[tuple[FinderResult, list[ExtractorResult]]]:
         found_boxes = self.finder(image)
         out = []
 

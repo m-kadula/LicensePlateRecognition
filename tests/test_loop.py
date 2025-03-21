@@ -17,7 +17,6 @@ image_dir = Path(__file__).parents[1] / "dataset/images/val"
 
 
 class MockCameraInterface(CameraInterface):
-
     def __init__(self, image_dir: Path):
         self.image_dir = image_dir
         assert self.image_dir.exists() and self.image_dir.is_dir()
@@ -29,12 +28,16 @@ class MockCameraInterface(CameraInterface):
 
 
 class DebugTextFinder(TextExtractor):
-
     def run(self, image: NDArray) -> list[ExtractorResult]:
         out = super().run(image)
-        if not (results_path.parent / 'processed').exists():
-            (results_path.parent / 'processed').mkdir()
-        cv2.imwrite(str(results_path.parent / 'processed' / f"{datetime.now().isoformat()}.jpg"), image)
+        if not (results_path.parent / "processed").exists():
+            (results_path.parent / "processed").mkdir()
+        cv2.imwrite(
+            str(
+                results_path.parent / "processed" / f"{datetime.now().isoformat()}.jpg"
+            ),
+            image,
+        )
         return out
 
 
@@ -42,19 +45,19 @@ def test_loop():
     model = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         preprocess_polish_license_plate,
-        required_confidence=0.0
+        required_confidence=0.0,
     )
     try:
         detection_loop(
             model,
             MockCameraInterface(image_dir),
-            LocalSaveInterface(results_path, show_debug_boxes=True)
+            LocalSaveInterface(results_path, show_debug_boxes=True),
         )
     except StopIteration:
         pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if results_path.exists():
         shutil.rmtree(results_path)
     test_loop()

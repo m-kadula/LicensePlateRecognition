@@ -38,11 +38,13 @@ if __name__ == "__main__":
 
     model = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
-        preprocess_polish_license_plate
+        preprocess_polish_license_plate,
     )
 
     detection_loop(
         model,
         MacOSCameraInterface(),
-        LocalSaveInterface(Path(__file__).parents[1] / "detected", show_debug_boxes=True),
+        LocalSaveInterface(
+            Path(__file__).parents[1] / "detected", show_debug_boxes=True
+        ),
     )
