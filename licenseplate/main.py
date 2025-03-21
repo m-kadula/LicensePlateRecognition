@@ -1,25 +1,15 @@
 from pathlib import Path
-from typing import NoReturn, Callable
+from typing import NoReturn
 from datetime import datetime
 from time import sleep
 
-from numpy.typing import NDArray
-
-from .detection import (
-    LicensePlateFinder,
-    TextExtractor,
-    LicensePlateValidator,
-    detect_plates,
-)
+from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
 from .action.base import ActionInterface
 
 
 def detection_loop(
-    finder: LicensePlateFinder,
-    extractor: TextExtractor,
-    preprocessor: Callable[[NDArray], NDArray],
-    validator: LicensePlateValidator,
+    detection_model: PlateDetectionModel,
     camera: CameraInterface,
     action: ActionInterface,
     max_fps: int = 30,
@@ -30,7 +20,7 @@ def detection_loop(
     while True:
         start = datetime.now()
         frame = camera.get_frame()
-        plates = detect_plates(frame, finder, extractor, preprocessor, validator)
+        plates = detection_model.detect_plates(frame)
         if plates:
             action.action_if_found(frame, plates)
         lasted = (datetime.now() - start).total_seconds()
@@ -46,11 +36,13 @@ if __name__ == "__main__":
     from .action.localsave import LocalSaveInterface
     from .preprocessing import preprocess_polish_license_plate
 
+    model = PlateDetectionModel(
+        Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
+        preprocess_polish_license_plate
+    )
+
     detection_loop(
-        LicensePlateFinder(Path(__file__).parents[1] / "runs/detect/train/weights/best.pt"),
-        TextExtractor(),
-        preprocess_polish_license_plate,
-        LicensePlateValidator(),
+        model,
         MacOSCameraInterface(),
         LocalSaveInterface(Path(__file__).parents[1] / "detected", show_debug_boxes=True),
     )

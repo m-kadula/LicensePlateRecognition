@@ -43,7 +43,7 @@ class ExtractorResult:
 
 
 class TextExtractor:
-    def __init__(self, allow_list: str = ascii_uppercase + digits):
+    def __init__(self, allow_list: str):
         self.allow_list = allow_list
         self.reader = easyocr.Reader(["en"])
 
@@ -66,8 +66,8 @@ class TextExtractor:
 class LicensePlateValidator:
     def __init__(
         self,
-        plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
-        required_confidence: float = 0.5,
+        plate_regex: str,
+        required_confidence: float,
     ):
         self.plate_regex = re.compile(plate_regex)
         self.required_confidence = required_confidence
@@ -79,10 +79,42 @@ class LicensePlateValidator:
         )
 
 
-def fix_plate(extraction: ExtractorResult):
-    text = extraction.text
-    text = text.replace("O", "0").replace(" ", "").strip()
-    extraction.text = text
+class PlateDetectionModel:
+
+    def __init__(self,
+                 yolo_weights_path: Path,
+                 preprocessor: Callable[[NDArray], NDArray],
+                 text_allow_list: str = ascii_uppercase + digits,
+                 plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
+                 required_confidence: float = 0.5
+                 ):
+        self.finder = LicensePlateFinder(yolo_weights_path)
+        self.extractor = TextExtractor(text_allow_list)
+        self.preprocessor = preprocessor
+        self.validator = LicensePlateValidator(plate_regex, required_confidence)
+
+    @staticmethod
+    def fix_plate(extraction: ExtractorResult):
+        text = extraction.text
+        text = text.replace("O", "0").replace(" ", "").strip()
+        extraction.text = text
+
+    def detect_plates(self, image: NDArray) -> list[tuple[FinderResult, list[ExtractorResult]]]:
+        found_boxes = self.finder(image)
+        out = []
+
+        for box in found_boxes:
+            x1, y1, x2, y2 = box.box
+            cropped_image = image[y1:y2, x1:x2]
+            altered_image = self.preprocessor(cropped_image)
+            found_text = self.extractor(altered_image)
+            for f in found_text:
+                self.fix_plate(f)
+            found_text = list(filter(lambda x: self.validator.validate(x), found_text))
+
+            out.append((box, found_text))
+
+        return out
 
 
 def convert_extractor_bbox_to_whole_image(
@@ -91,30 +123,6 @@ def convert_extractor_bbox_to_whole_image(
     f_xtl, f_ytl, f_xbr, f_xbr = finder_bbox_xyxy
     func = lambda p: (f_xtl + p[0], f_ytl + p[1])
     return tuple(map(func, extractor_bbox_points))
-
-
-def detect_plates(
-    image: NDArray,
-    finder: LicensePlateFinder,
-    extractor: TextExtractor,
-    preprocessor: Callable[[NDArray], NDArray],
-    validator: LicensePlateValidator,
-) -> list[tuple[FinderResult, list[ExtractorResult]]]:
-    found_boxes = finder(image)
-    out = []
-
-    for box in found_boxes:
-        x1, y1, x2, y2 = box.box
-        cropped_image = image[y1:y2, x1:x2]
-        altered_image = preprocessor(cropped_image)
-        found_text = extractor(altered_image)
-        for f in found_text:
-            fix_plate(f)
-        found_text = list(filter(lambda x: validator.validate(x), found_text))
-
-        out.append((box, found_text))
-
-    return out
 
 
 def visualise(
@@ -155,20 +163,3 @@ def visualise(
                 2,
             )
     return image
-
-
-# if __name__ == '__main__':
-#     engine = Path(__file__).parents[1] / 'runs/detect/train/weights/best.pt'
-#     image = Path(__file__).parents[1] / 'dataset/images/val/2.jpg'
-#     img = cv2.imread(str(image))
-#
-#     finder = YoloLicensePlateFinder(engine)
-#     extractor = TextExtractor()
-#
-#     detected = detect_plates(img, finder, extractor)
-#     print(detected)
-#     vis = visualise(img, detected)
-#
-#     cv2.imshow("OCR Detection", vis)
-#     cv2.waitKey(0)
-#     cv2.destroyAllWindows()
