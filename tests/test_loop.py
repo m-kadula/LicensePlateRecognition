@@ -14,7 +14,7 @@ from licenseplate.preprocessors import (
     preprocess_identity,
 )
 from licenseplate.logger import get_logger
-from licenseplate.loop import detection_loop
+from licenseplate.loop import DetectionLoop
 
 engine_dir = Path(__file__).parents[1] / "runs/detect/train/weights/best.pt"
 results_path = Path(__file__).parents[0] / "results"
@@ -53,13 +53,14 @@ def test_loop():
         preprocess_polish_license_plate,
         required_confidence=0.0,
     )
+    loop = DetectionLoop(
+        model,
+        MockCameraInterface(image_dir),
+        LocalSaveInterface(results_path, show_debug_boxes=True),
+        logger=get_logger('detection_loop', sys.stdout)
+    )
     try:
-        detection_loop(
-            model,
-            MockCameraInterface(image_dir),
-            LocalSaveInterface(results_path, show_debug_boxes=True),
-            logger=get_logger('detection_loop', sys.stdout)
-        )
+        loop.run()
     except StopIteration:
         pass
 
