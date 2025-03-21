@@ -19,7 +19,7 @@ class LocalSaveInterface(ActionInterface):
         self,
         image: NDArray,
         detected_plates: list[tuple[FinderResult, list[ExtractorResult]]],
-        time: datetime
+        time: datetime,
     ):
         visualised = visualise(
             image, detected_plates, show_debug_boxes=self.debug_boxes

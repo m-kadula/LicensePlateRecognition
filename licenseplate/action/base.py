@@ -12,7 +12,7 @@ class ActionInterface(ABC):
         self,
         image: NDArray,
         detected_plated: list[tuple[FinderResult, list[ExtractorResult]]],
-        time: datetime
+        time: datetime,
     ):
         pass
 

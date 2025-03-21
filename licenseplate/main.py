@@ -11,11 +11,11 @@ from .action.base import ActionInterface
 def detection_iteration(
     detection_model: PlateDetectionModel,
     camera: CameraInterface,
-    action: ActionInterface
+    action: ActionInterface,
 ) -> tuple[datetime, float]:
     frame_time = datetime.now()
-    frame = camera.get_frame()
 
+    frame = camera.get_frame()
     plates = detection_model.detect_plates(frame)
     if plates:
         action.action_if_found(frame, plates, frame_time)
@@ -38,6 +38,7 @@ def detection_loop(
 
     while True:
         frame_time, lasted = detection_iteration(detection_model, camera, action)
+
         fps_count += 1
         fps_sum += 1 / lasted
         print(f"FPS now: {1 / lasted}, FPS average: {fps_sum / fps_count}")
