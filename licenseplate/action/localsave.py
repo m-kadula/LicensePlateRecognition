@@ -19,10 +19,9 @@ class LocalSaveInterface(ActionInterface):
         self,
         image: NDArray,
         detected_plates: list[tuple[FinderResult, list[ExtractorResult]]],
-    ) -> bool:
+        time: datetime
+    ):
         visualised = visualise(
             image, detected_plates, show_debug_boxes=self.debug_boxes
         )
-        now = datetime.now()
-        cv2.imwrite(str(self.save_to / f"{now.isoformat()}.jpg"), visualised)
-        return True
+        cv2.imwrite(str(self.save_to / f"{time.isoformat()}.jpg"), visualised)

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from numpy.typing import NDArray
 
@@ -11,5 +12,9 @@ class ActionInterface(ABC):
         self,
         image: NDArray,
         detected_plated: list[tuple[FinderResult, list[ExtractorResult]]],
-    ) -> bool:
+        time: datetime
+    ):
+        pass
+
+    def action_if_not_found(self, image: NDArray, time: datetime):
         pass
