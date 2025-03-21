@@ -9,8 +9,8 @@ from ..detection import FinderResult, ExtractorResult, visualise
 
 
 class LocalSaveInterface(ActionInterface):
-    def __init__(self, save_directory: Path, show_debug_boxes: bool = False):
-        self.save_to = save_directory
+    def __init__(self, save_directory: Path | str, show_debug_boxes: bool = False):
+        self.save_to = save_directory if isinstance(save_directory, Path) else Path(save_directory).resolve()
         self.debug_boxes = show_debug_boxes
         if not self.save_to.exists():
             self.save_to.mkdir()

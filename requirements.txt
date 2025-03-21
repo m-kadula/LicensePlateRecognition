@@ -1,8 +1,10 @@
+pyyaml
 numpy
 torch
 torchvision
 torchaudio
 ultralytics
+pydantic
 opencv-python
 easyocr
 picamera2

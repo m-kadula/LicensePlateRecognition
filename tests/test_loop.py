@@ -14,7 +14,7 @@ from licenseplate.preprocessors import (
     preprocess_identity,
 )
 from licenseplate.logger import get_logger
-from licenseplate.main import detection_loop
+from licenseplate.loop import detection_loop
 
 engine_dir = Path(__file__).parents[1] / "runs/detect/train/weights/best.pt"
 results_path = Path(__file__).parents[0] / "results"
