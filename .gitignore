@@ -193,3 +193,7 @@ cython_debug/
 # YOLO trainig related
 raw
 runs
+dataset/images
+dataset/labels
+dataset/license_plate.yaml
+detected
