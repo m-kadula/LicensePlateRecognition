@@ -34,10 +34,11 @@ def detection_loop(
 if __name__ == "__main__":
     from .camera.macos import MacOSCameraInterface
     from .action.localsave import LocalSaveInterface
-    from .preprocessing import preprocess_polish_license_plate
+    from .preprocessing import preprocess_polish_license_plate, preprocess_identity
 
     model = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
+        preprocess_identity,
         preprocess_polish_license_plate,
     )
 

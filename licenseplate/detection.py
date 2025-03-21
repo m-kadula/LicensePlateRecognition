@@ -78,41 +78,44 @@ class LicensePlateValidator:
             and extraction.confidence >= self.required_confidence
         )
 
-
-class PlateDetectionModel:
-    def __init__(
-        self,
-        yolo_weights_path: Path,
-        preprocessor: Callable[[NDArray], NDArray],
-        text_allow_list: str = ascii_uppercase + digits,
-        plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
-        required_confidence: float = 0.5,
-    ):
-        self.finder = LicensePlateFinder(yolo_weights_path)
-        self.extractor = TextExtractor(text_allow_list)
-        self.preprocessor = preprocessor
-        self.validator = LicensePlateValidator(plate_regex, required_confidence)
-
     @staticmethod
     def fix_plate(extraction: ExtractorResult):
         text = extraction.text
         text = text.replace("O", "0").replace(" ", "").strip()
         extraction.text = text
 
+
+class PlateDetectionModel:
+    def __init__(
+        self,
+        yolo_weights_path: Path,
+        original_frame_preprocessor: Callable[[NDArray], NDArray],
+        license_plate_preprocessor: Callable[[NDArray], NDArray],
+        text_allow_list: str = ascii_uppercase + digits,
+        plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
+        required_confidence: float = 0.5,
+    ):
+        self.finder = LicensePlateFinder(yolo_weights_path)
+        self.extractor = TextExtractor(text_allow_list)
+        self.original_image_preprocessor = original_frame_preprocessor
+        self.license_plate_preprocessor = license_plate_preprocessor
+        self.validator = LicensePlateValidator(plate_regex, required_confidence)
+
     def detect_plates(
         self, image: NDArray
     ) -> list[tuple[FinderResult, list[ExtractorResult]]]:
+        image = self.original_image_preprocessor(image)
         found_boxes = self.finder(image)
         out = []
 
         for box in found_boxes:
             x1, y1, x2, y2 = box.box
             cropped_image = image[y1:y2, x1:x2]
-            altered_image = self.preprocessor(cropped_image)
+            altered_image = self.license_plate_preprocessor(cropped_image)
             found_text = self.extractor(altered_image)
             for f in found_text:
-                self.fix_plate(f)
-            found_text = list(filter(lambda x: self.validator.validate(x), found_text))
+                self.validator.fix_plate(f)
+            found_text = list(filter(self.validator.validate, found_text))
 
             out.append((box, found_text))
 

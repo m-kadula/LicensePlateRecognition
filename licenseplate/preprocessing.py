@@ -3,6 +3,10 @@ import numpy as np
 import cv2
 
 
+def preprocess_identity(image: NDArray) -> NDArray:
+    return image.copy()
+
+
 def preprocess_polish_license_plate(image: NDArray) -> NDArray:
     image = image.copy()
 
