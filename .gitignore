@@ -190,10 +190,12 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
-# YOLO trainig related
+# Custom
 raw
 runs
 dataset/images
 dataset/labels
 dataset/license_plate.yaml
 detected
+tests/processed
+tests/results
