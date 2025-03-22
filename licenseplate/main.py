@@ -1,18 +1,17 @@
 import importlib
 import sys
-from typing import Any, Callable
+from typing import Any, Optional
 from pathlib import Path
 from string import ascii_uppercase, digits
 from argparse import ArgumentParser
 
 import yaml
-from numpy.typing import NDArray
 from pydantic import BaseModel
 
 from .loop import DetectionLoop
 from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
-from .action.base import ActionInterface
+from .action.base import ActionInterface, ActionManagerInterface
 from .preprocessor.base import PreprocessorInterface
 from .logger import get_logger
 
@@ -20,23 +19,32 @@ from .logger import get_logger
 # pydantic config models
 
 
+class InterfaceConfig(BaseModel):
+    which: str
+    kwargs: Optional[dict[str, Any]] = None
+
+
 class LoopConfig(BaseModel):
     yolo_weights_path: str
-    general_preprocessor: str
-    license_plate_preprocessor: str
+    general_preprocessor: InterfaceConfig
+    license_plate_preprocessor: InterfaceConfig
+    camera_interface: InterfaceConfig
+    action_interface: InterfaceConfig
     text_allow_list: str
     plate_regex: str
     required_confidence: float
-    camera_interface: str
-    action_interface: str
     max_fps: int
 
-    kwargs: dict[str, dict[str, Any]]
-    env: dict[str, Any]
+
+class ManagerConfig(BaseModel):
+    which: str
+    apply_to: list[InterfaceConfig]  # which instances to apply to
+    kwargs: Optional[dict[str, Any]] = None
 
 
 class GlobalConfig(BaseModel):
     instances: dict[str, LoopConfig]
+    managers: Optional[dict[str, ManagerConfig]] = None
 
 
 # example
@@ -45,24 +53,32 @@ example = GlobalConfig(
     instances={
         "camera1": LoopConfig(
             yolo_weights_path=str(Path(__file__).parents[1] / "weights.pt"),
-            general_preprocessor=".base.IdentityPreprocessor",
-            license_plate_preprocessor=".polish_plate.PolishLicensePlatePreprocessor",
-            text_allow_list=ascii_uppercase + digits,
-            plate_regex=r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
-            required_confidence=0.5,
-            camera_interface=".macos.MacOSCameraInterface",
-            action_interface=".localsave.LocalSaveInterface",
-            max_fps=30,
-            kwargs={
-                "camera_interface": {"device": 0},
-                "action_interface": {
+            general_preprocessor=InterfaceConfig(
+                which=".base.IdentityPreprocessor",
+                kwargs=None,
+            ),
+            license_plate_preprocessor=InterfaceConfig(
+                which=".polish_plate.PolishLicensePlatePreprocessor",
+                kwargs=None,
+            ),
+            camera_interface=InterfaceConfig(
+                which=".macos.MacOSCameraInterface",
+                kwargs={"device": 0},
+            ),
+            action_interface=InterfaceConfig(
+                which=".localsave.LocalSaveInterface",
+                kwargs={
                     "save_directory": str(Path(__file__).parents[1] / "detected"),
                     "show_debug_boxes": True,
                 },
-            },
-            env={},
+            ),
+            text_allow_list=ascii_uppercase + digits,
+            plate_regex=r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
+            required_confidence=0.5,
+            max_fps=30,
         )
-    }
+    },
+    managers=None,
 )
 
 
@@ -74,41 +90,28 @@ def dynamic_import_class(package: str, module_path: str):
     return getattr(module, class_name)
 
 
+def make_class_instance(package: str, config: InterfaceConfig | ManagerConfig):
+    class_ = dynamic_import_class(__package__ + package, config.which)
+    kwargs = config.kwargs if config.kwargs is not None else {}
+    return class_.get_instance(**kwargs)
+
+
+def instance_check(expected: type, got: Any):
+    if not isinstance(got, expected):
+        raise TypeError(f"Expected type {expected}, got {type(got)}.")
+
+
 def configure_loop(
     loop_config: LoopConfig,
-) -> tuple[
-    PlateDetectionModel,
-    CameraInterface,
-    ActionInterface,
-    Callable[[NDArray], NDArray],
-    Callable[[NDArray], NDArray],
-]:
-    general_preprocessor_class: PreprocessorInterface = dynamic_import_class(
-        __package__ + ".preprocessor", loop_config.general_preprocessor
-    )
-
-    license_plate_preprocessor_class: PreprocessorInterface = dynamic_import_class(
-        __package__ + ".preprocessor", loop_config.license_plate_preprocessor
-    )
-
-    camera_class: CameraInterface = dynamic_import_class(
-        __package__ + ".camera", loop_config.camera_interface
-    )
-    action_class: ActionInterface = dynamic_import_class(
-        __package__ + ".action", loop_config.action_interface
-    )
-
-    general_preprocessor_kwargs = loop_config.kwargs.get("general_preprocessor", {})
-    general_preprocessor = general_preprocessor_class.get_instance(**general_preprocessor_kwargs)
-
-    license_plate_preprocessor_kwargs = loop_config.kwargs.get("license_plate_preprocessor", {})
-    license_plate_preprocessor = license_plate_preprocessor_class.get_instance(**license_plate_preprocessor_kwargs)
-
-    camera_kwargs = loop_config.kwargs.get("camera_interface", {})
-    camera = camera_class.get_instance(**camera_kwargs)
-
-    action_kwargs = loop_config.kwargs.get("action_interface", {})
-    action = action_class.get_instance(**action_kwargs)
+) -> tuple[PlateDetectionModel, CameraInterface, ActionInterface]:
+    general_preprocessor: PreprocessorInterface = make_class_instance('.preprocessor', loop_config.general_preprocessor)
+    instance_check(PreprocessorInterface, general_preprocessor)
+    license_plate_preprocessor: PreprocessorInterface = make_class_instance('.preprocessor', loop_config.license_plate_preprocessor)
+    instance_check(PreprocessorInterface, license_plate_preprocessor)
+    camera: CameraInterface = make_class_instance('.camera', loop_config.camera_interface)
+    instance_check(CameraInterface, camera)
+    action: ActionInterface = make_class_instance('.action', loop_config.action_interface)
+    instance_check(ActionInterface, action)
 
     detection_model = PlateDetectionModel(
         yolo_weights_path=Path(loop_config.yolo_weights_path).resolve(),
@@ -119,13 +122,44 @@ def configure_loop(
         required_confidence=loop_config.required_confidence,
     )
 
-    return (
-        detection_model,
-        camera,
-        action,
-        general_preprocessor,
-        license_plate_preprocessor,
-    )
+    return detection_model, camera, action
+
+
+def configure_manager(instances: dict[str, DetectionLoop], manager_config: ManagerConfig) -> ActionManagerInterface:
+    manager: ActionManagerInterface = make_class_instance('.action', manager_config)
+    instance_check(ActionManagerInterface, manager)
+
+    for instance in manager_config.apply_to:
+        if instance.which not in instances.keys():
+            raise ValueError(f"No instance with name {instance.which} defined.")
+        kwargs = instance.kwargs if instance.kwargs is not None else {}
+        manager.register_camera(instances[instance.which].action, **kwargs)
+
+    return manager
+
+
+def configure(config: GlobalConfig) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
+    all_instances: dict[str, DetectionLoop] = {}
+    for name, loop_config in config.instances.items():
+        detection_model, camera, action = (
+            configure_loop(loop_config)
+        )
+        detection_loop = DetectionLoop(
+            detection_model,
+            camera,
+            action,
+            get_logger(name, sys.stdout),
+            loop_config.max_fps,
+        )
+        all_instances[name] = detection_loop
+
+    all_managers: dict[str, ActionManagerInterface] = {}
+    if config.managers is not None:
+        for name, manager_config in config.managers.items():
+            manager = configure_manager(all_instances, manager_config)
+            all_managers[name] = manager
+
+    return all_instances, all_managers
 
 
 def main():
@@ -158,27 +192,17 @@ def main():
             data = yaml.load(f, yaml.Loader)
         global_config = GlobalConfig.model_validate(data)
 
-        loops = []
-        for name, loop_config in global_config.instances.items():
-            detection_model, camera, action, base_processor, plate_processor = (
-                configure_loop(loop_config)
-            )
-            detection_loop = DetectionLoop(
-                detection_model,
-                camera,
-                action,
-                get_logger(name, sys.stdout),
-                loop_config.max_fps,
-            )
-            detection_loop.start_thread()
-            loops.append(detection_loop)
+        instances, managers = configure(global_config)
+
+        for instance in instances.values():
+            instance.start_thread()
 
         try:
             while True:
                 input()
         except KeyboardInterrupt:
-            for loop in loops:
-                loop.stop_thread()
+            for instance in instances.values():
+                instance.stop_thread()
 
 
 if __name__ == "__main__":

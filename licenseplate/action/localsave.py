@@ -11,6 +11,7 @@ from ..detection import FinderResult, ExtractorResult, visualise
 
 class LocalSaveInterface(ActionInterface):
     def __init__(self, save_directory: Path, show_debug_boxes: bool = False):
+        super().__init__()
         self.save_to = save_directory
         self.debug_boxes = show_debug_boxes
         if not self.save_to.exists():
