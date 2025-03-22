@@ -2,12 +2,13 @@ from pathlib import Path
 from dataclasses import dataclass
 import re
 from string import ascii_uppercase, digits
-from typing import Callable
 
 from numpy.typing import NDArray
 import cv2
 import easyocr
 from ultralytics import YOLO
+
+from .preprocessor.base import PreprocessorInterface
 
 
 @dataclass
@@ -89,8 +90,8 @@ class PlateDetectionModel:
     def __init__(
         self,
         yolo_weights_path: Path,
-        original_frame_preprocessor: Callable[[NDArray], NDArray],
-        license_plate_preprocessor: Callable[[NDArray], NDArray],
+        original_frame_preprocessor: PreprocessorInterface,
+        license_plate_preprocessor: PreprocessorInterface,
         text_allow_list: str = ascii_uppercase + digits,
         plate_regex: str = r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
         required_confidence: float = 0.5,

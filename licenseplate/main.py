@@ -13,6 +13,7 @@ from .loop import DetectionLoop
 from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
 from .action.base import ActionInterface
+from .preprocessor.base import PreprocessorInterface
 from .logger import get_logger
 
 
@@ -44,8 +45,8 @@ example = GlobalConfig(
     instances={
         "camera1": LoopConfig(
             yolo_weights_path=str(Path(__file__).parents[1] / "weights.pt"),
-            general_preprocessor="preprocess_identity",
-            license_plate_preprocessor="preprocess_polish_license_plate",
+            general_preprocessor=".base.IdentityPreprocessor",
+            license_plate_preprocessor=".polish_plate.PolishLicensePlatePreprocessor",
             text_allow_list=ascii_uppercase + digits,
             plate_regex=r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
             required_confidence=0.5,
@@ -82,11 +83,13 @@ def configure_loop(
     Callable[[NDArray], NDArray],
     Callable[[NDArray], NDArray],
 ]:
-    module = importlib.import_module(package=__package__, name=f".preprocessors")
-    general_preprocessor = getattr(module, loop_config.general_preprocessor)
+    general_preprocessor_class: PreprocessorInterface = dynamic_import_class(
+        __package__ + ".preprocessor", loop_config.general_preprocessor
+    )
 
-    module = importlib.import_module(package=__package__, name=f".preprocessors")
-    license_plate_preprocessor = getattr(module, loop_config.license_plate_preprocessor)
+    license_plate_preprocessor_class: PreprocessorInterface = dynamic_import_class(
+        __package__ + ".preprocessor", loop_config.license_plate_preprocessor
+    )
 
     camera_class: CameraInterface = dynamic_import_class(
         __package__ + ".camera", loop_config.camera_interface
@@ -94,6 +97,12 @@ def configure_loop(
     action_class: ActionInterface = dynamic_import_class(
         __package__ + ".action", loop_config.action_interface
     )
+
+    general_preprocessor_kwargs = loop_config.kwargs.get("general_preprocessor", {})
+    general_preprocessor = general_preprocessor_class.get_instance(**general_preprocessor_kwargs)
+
+    license_plate_preprocessor_kwargs = loop_config.kwargs.get("license_plate_preprocessor", {})
+    license_plate_preprocessor = license_plate_preprocessor_class.get_instance(**license_plate_preprocessor_kwargs)
 
     camera_kwargs = loop_config.kwargs.get("camera_interface", {})
     camera = camera_class.get_instance(**camera_kwargs)

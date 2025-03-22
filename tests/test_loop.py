@@ -9,10 +9,8 @@ import cv2
 from licenseplate.action.localsave import LocalSaveInterface
 from licenseplate.camera.base import CameraInterface
 from licenseplate.detection import TextExtractor, ExtractorResult, PlateDetectionModel
-from licenseplate.preprocessors import (
-    preprocess_polish_license_plate,
-    preprocess_identity,
-)
+from licenseplate.preprocessor.base import IdentityPreprocessor
+from licenseplate.preprocessor.polish_plate import PolishLicensePlatePreprocessor
 from licenseplate.logger import get_logger
 from licenseplate.loop import DetectionLoop
 
@@ -49,8 +47,8 @@ class DebugTextFinder(TextExtractor):
 def test_loop():
     model = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
-        preprocess_identity,
-        preprocess_polish_license_plate,
+        IdentityPreprocessor(),
+        PolishLicensePlatePreprocessor(),
         required_confidence=0.0,
     )
     loop = DetectionLoop(
