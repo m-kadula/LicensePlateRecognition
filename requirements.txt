@@ -7,4 +7,3 @@ ultralytics
 pydantic
 opencv-python
 easyocr
-picamera2

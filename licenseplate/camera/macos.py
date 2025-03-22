@@ -1,3 +1,5 @@
+from typing import Self
+
 import cv2
 import numpy as np
 from numpy.typing import NDArray
@@ -11,6 +13,10 @@ class MacOSCameraInterface(CameraInterface):
         self.cap = cv2.VideoCapture(self.device)
         if not self.cap.isOpened():
             raise IOError(f"Camera {self.device} cannot be accessed.")
+
+    @classmethod
+    def get_instance(cls, /, device: int) -> Self:
+        return cls(device)
 
     def get_frame(self) -> NDArray:
         ret, frame = self.cap.read()

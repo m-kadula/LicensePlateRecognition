@@ -30,7 +30,6 @@ class LoopConfig(BaseModel):
     action_interface: str
     max_fps: int
 
-    args: dict[str, list[Any]]
     kwargs: dict[str, dict[str, Any]]
     env: dict[str, Any]
 
@@ -53,7 +52,6 @@ example = GlobalConfig(
             camera_interface=".macos.MacOSCameraInterface",
             action_interface=".localsave.LocalSaveInterface",
             max_fps=30,
-            args={"camera_interface": [], "action_interface": []},
             kwargs={
                 "camera_interface": {"device": 0},
                 "action_interface": {
@@ -90,22 +88,18 @@ def configure_loop(
     module = importlib.import_module(package=__package__, name=f".preprocessors")
     license_plate_preprocessor = getattr(module, loop_config.license_plate_preprocessor)
 
-    camera_class = dynamic_import_class(
+    camera_class: CameraInterface = dynamic_import_class(
         __package__ + ".camera", loop_config.camera_interface
     )
-    action_class = dynamic_import_class(
+    action_class: ActionInterface = dynamic_import_class(
         __package__ + ".action", loop_config.action_interface
     )
 
-    camera_args = loop_config.args.get("camera_interface", [])
     camera_kwargs = loop_config.kwargs.get("camera_interface", {})
+    camera = camera_class.get_instance(**camera_kwargs)
 
-    camera = camera_class(*camera_args, **camera_kwargs)
-
-    action_args = loop_config.args.get("action_interface", [])
     action_kwargs = loop_config.kwargs.get("action_interface", {})
-
-    action = action_class(*action_args, **action_kwargs)
+    action = action_class.get_instance(**action_kwargs)
 
     detection_model = PlateDetectionModel(
         yolo_weights_path=Path(loop_config.yolo_weights_path).resolve(),
@@ -128,6 +122,7 @@ def configure_loop(
 def main():
     parser = ArgumentParser("Daemon for license plate recognition")
     subparsers = parser.add_subparsers(title="subcommands", dest="command")
+    subparsers.required = True
 
     run_subparser = subparsers.add_parser("run", help="run the daemon")
     run_subparser.add_argument(

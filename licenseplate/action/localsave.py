@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+from typing import Self
 
 from numpy.typing import NDArray
 import cv2
@@ -9,15 +10,15 @@ from ..detection import FinderResult, ExtractorResult, visualise
 
 
 class LocalSaveInterface(ActionInterface):
-    def __init__(self, save_directory: Path | str, show_debug_boxes: bool = False):
-        self.save_to = (
-            save_directory
-            if isinstance(save_directory, Path)
-            else Path(save_directory).resolve()
-        )
+    def __init__(self, save_directory: Path, show_debug_boxes: bool = False):
+        self.save_to = save_directory
         self.debug_boxes = show_debug_boxes
         if not self.save_to.exists():
             self.save_to.mkdir()
+
+    @classmethod
+    def get_instance(cls, /, save_directory: str, show_debug_boxes: bool = False) -> Self:
+        return cls(Path(save_directory).resolve(), show_debug_boxes)
 
     def action_if_found(
         self,

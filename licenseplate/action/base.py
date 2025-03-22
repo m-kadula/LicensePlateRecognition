@@ -1,3 +1,4 @@
+from typing import Self
 from abc import ABC, abstractmethod
 from datetime import datetime
 
@@ -7,6 +8,11 @@ from ..detection import FinderResult, ExtractorResult
 
 
 class ActionInterface(ABC):
+
+    @classmethod
+    def get_instance(cls, **kwargs) -> Self:
+        return cls()
+
     @abstractmethod
     def action_if_found(
         self,
