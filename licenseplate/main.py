@@ -30,7 +30,7 @@ class LoopConfig(BaseModel):
     license_plate_preprocessor: InterfaceConfig
     camera_interface: InterfaceConfig
     action_interface: InterfaceConfig
-    text_allow_list: str
+    text_allow_list: Optional[str] = None
     required_confidence: float
     max_fps: int
 

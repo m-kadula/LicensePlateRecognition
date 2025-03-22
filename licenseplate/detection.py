@@ -1,6 +1,6 @@
+from typing import Optional
 from pathlib import Path
 from dataclasses import dataclass
-from string import ascii_uppercase, digits
 
 from numpy.typing import NDArray
 import cv2
@@ -43,7 +43,7 @@ class ExtractorResult:
 
 
 class TextExtractor:
-    def __init__(self, allow_list: str):
+    def __init__(self, allow_list: Optional[str] = None):
         self.allow_list = allow_list
         self.reader = easyocr.Reader(["en"])
 
@@ -69,7 +69,7 @@ class PlateDetectionModel:
         yolo_weights_path: Path,
         original_frame_preprocessor: PreprocessorInterface,
         license_plate_preprocessor: PreprocessorInterface,
-        text_allow_list: str = ascii_uppercase + digits,
+        text_allow_list: Optional[str] = None,
         required_confidence: float = 0.5,
     ):
         self.finder = LicensePlateFinder(yolo_weights_path)
