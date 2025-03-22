@@ -31,7 +31,6 @@ class LoopConfig(BaseModel):
     camera_interface: InterfaceConfig
     action_interface: InterfaceConfig
     text_allow_list: str
-    plate_regex: str
     required_confidence: float
     max_fps: int
 
@@ -73,7 +72,6 @@ example = GlobalConfig(
                 },
             ),
             text_allow_list=ascii_uppercase + digits,
-            plate_regex=r"[A-Z]{1,3} ?[0-9A-Z]{3,5}",
             required_confidence=0.5,
             max_fps=30,
         )
@@ -118,7 +116,6 @@ def configure_loop(
         original_frame_preprocessor=general_preprocessor,
         license_plate_preprocessor=license_plate_preprocessor,
         text_allow_list=loop_config.text_allow_list,
-        plate_regex=loop_config.plate_regex,
         required_confidence=loop_config.required_confidence,
     )
 
