@@ -61,7 +61,7 @@ example = GlobalConfig(
                 kwargs=None,
             ),
             camera_interface=InterfaceConfig(
-                which=".macos.MacOSCameraInterface",
+                which=".default.DefaultCameraInterface",
                 kwargs={"device": 0},
             ),
             action_interface=InterfaceConfig(
