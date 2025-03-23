@@ -199,3 +199,4 @@ dataset/license_plate.yaml
 detected
 tests/processed
 tests/results
+licenseplate_log

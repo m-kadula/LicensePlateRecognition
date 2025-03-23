@@ -11,7 +11,7 @@ from licenseplate.camera.base import CameraInterface
 from licenseplate.detection import TextExtractor, ExtractorResult, PlateDetectionModel
 from licenseplate.preprocessor.base import IdentityPreprocessor
 from licenseplate.preprocessor.polish_plate import PolishLicensePlatePreprocessor
-from licenseplate.logger import get_logger
+from licenseplate.logger import get_standard_logger
 from licenseplate.loop import DetectionLoop
 
 engine_dir = Path(__file__).parents[1] / "runs/detect/train/weights/best.pt"
@@ -55,7 +55,7 @@ def test_loop():
         model,
         MockCameraInterface(image_dir),
         LocalSaveInterface(results_path, show_debug_boxes=True),
-        logger=get_logger('detection_loop', sys.stdout)
+        logger=get_standard_logger('detection_loop', sys.stdout)
     )
     try:
         loop.run()

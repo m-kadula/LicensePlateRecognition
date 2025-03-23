@@ -1,5 +1,4 @@
 import importlib
-import sys
 from typing import Any, Optional
 from pathlib import Path
 from string import ascii_uppercase, digits
@@ -13,7 +12,7 @@ from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
 from .action.base import ActionInterface, ActionManagerInterface
 from .preprocessor.base import PreprocessorInterface
-from .logger import get_logger
+from .logger import get_rotating_logger
 
 
 # pydantic config models
@@ -41,9 +40,21 @@ class ManagerConfig(BaseModel):
     kwargs: Optional[dict[str, Any]] = None
 
 
+class LoggerConfig(BaseModel):
+    directory: str
+    max_size: int = 1024 * 1024
+    backup_count: int = 5
+
+
+default_logger_config = LoggerConfig(
+    directory=str(Path(__file__).parents[1] / 'licenseplate_log')
+)
+
+
 class GlobalConfig(BaseModel):
     instances: dict[str, LoopConfig]
     managers: Optional[dict[str, ManagerConfig]] = None
+    logging: LoggerConfig = default_logger_config
 
 
 # example
@@ -138,6 +149,13 @@ def configure_manager(instances: dict[str, DetectionLoop], manager_config: Manag
 def configure(config: GlobalConfig) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
     all_instances: dict[str, DetectionLoop] = {}
     for name, loop_config in config.instances.items():
+        logger = get_rotating_logger(
+            name,
+            Path(config.logging.directory) / name,
+            f'{name}.log',
+            max_bytes=config.logging.max_size,
+            backup_count=config.logging.backup_count
+        )
         detection_model, camera, action = (
             configure_loop(loop_config)
         )
@@ -145,7 +163,7 @@ def configure(config: GlobalConfig) -> tuple[dict[str, DetectionLoop], dict[str,
             detection_model,
             camera,
             action,
-            get_logger(name, sys.stdout),
+            logger,
             loop_config.max_fps,
         )
         all_instances[name] = detection_loop
