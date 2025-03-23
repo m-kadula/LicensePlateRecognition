@@ -61,7 +61,7 @@ class DetectionLoop:
 
             iteration += 1
             fps_sum += 1 / lasted
-            if self.logger is not None:
+            if self.logger is not None and detected_plates > 0:
                 self.logger.info(
                     f"Iteration: {iteration}, FPS now: {round(1 / lasted, 2)}, FPS average: {round(fps_sum / iteration, 2)}\n"
                     f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
