@@ -214,7 +214,7 @@ def main():
 
     elif args.command == "run":
         with open(args.configuration_file) as f:
-            data = yaml.load(f, yaml.Loader)
+            data = yaml.load(f, yaml.SafeLoader)
         global_config = GlobalConfig.model_validate(data)
 
         instances, managers = configure(global_config)

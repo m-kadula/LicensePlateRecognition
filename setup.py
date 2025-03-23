@@ -5,7 +5,6 @@ setup(
     version="0.1.0",
     description="A daemon for license plate recognition from a live camera feed",
     author="Mateusz Kadula",
-    author_email="mateusz.kadula@icloud.com",
     packages=find_packages(),
     entry_points={
         "console_scripts": [
