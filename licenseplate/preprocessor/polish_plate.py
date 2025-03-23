@@ -6,7 +6,6 @@ from .base import PreprocessorInterface
 
 
 class PolishLicensePlatePreprocessor(PreprocessorInterface):
-
     def preprocess(self, image: NDArray) -> NDArray:
         image = image.copy()
 

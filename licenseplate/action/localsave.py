@@ -18,7 +18,9 @@ class LocalSaveInterface(ActionInterface):
             self.save_to.mkdir()
 
     @classmethod
-    def get_instance(cls, /, save_directory: str, show_debug_boxes: bool = False) -> Self:
+    def get_instance(
+        cls, /, save_directory: str, show_debug_boxes: bool = False
+    ) -> Self:
         return cls(Path(save_directory).resolve(), show_debug_boxes)
 
     def action_if_found(

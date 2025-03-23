@@ -90,7 +90,9 @@ class PlateDetectionModel:
             cropped_image = image[y1:y2, x1:x2]
             altered_image = self.license_plate_preprocessor(cropped_image)
             found_text = self.extractor(altered_image)
-            found_text = list(filter(lambda x: x.confidence >= self.required_confidence, found_text))
+            found_text = list(
+                filter(lambda x: x.confidence >= self.required_confidence, found_text)
+            )
 
             out.append((box, found_text))
 

@@ -47,7 +47,7 @@ class LoggerConfig(BaseModel):
 
 
 default_logger_config = LoggerConfig(
-    directory=str(Path(__file__).parents[1] / 'licenseplate_log')
+    directory=str(Path(__file__).parents[1] / "licenseplate_log")
 )
 
 
@@ -113,13 +113,21 @@ def instance_check(expected: type, got: Any):
 def configure_loop(
     loop_config: LoopConfig,
 ) -> tuple[PlateDetectionModel, CameraInterface, ActionInterface]:
-    general_preprocessor: PreprocessorInterface = make_class_instance('.preprocessor', loop_config.general_preprocessor)
+    general_preprocessor: PreprocessorInterface = make_class_instance(
+        ".preprocessor", loop_config.general_preprocessor
+    )
     instance_check(PreprocessorInterface, general_preprocessor)
-    license_plate_preprocessor: PreprocessorInterface = make_class_instance('.preprocessor', loop_config.license_plate_preprocessor)
+    license_plate_preprocessor: PreprocessorInterface = make_class_instance(
+        ".preprocessor", loop_config.license_plate_preprocessor
+    )
     instance_check(PreprocessorInterface, license_plate_preprocessor)
-    camera: CameraInterface = make_class_instance('.camera', loop_config.camera_interface)
+    camera: CameraInterface = make_class_instance(
+        ".camera", loop_config.camera_interface
+    )
     instance_check(CameraInterface, camera)
-    action: ActionInterface = make_class_instance('.action', loop_config.action_interface)
+    action: ActionInterface = make_class_instance(
+        ".action", loop_config.action_interface
+    )
     instance_check(ActionInterface, action)
 
     detection_model = PlateDetectionModel(
@@ -133,8 +141,10 @@ def configure_loop(
     return detection_model, camera, action
 
 
-def configure_manager(instances: dict[str, DetectionLoop], manager_config: ManagerConfig) -> ActionManagerInterface:
-    manager: ActionManagerInterface = make_class_instance('.action', manager_config)
+def configure_manager(
+    instances: dict[str, DetectionLoop], manager_config: ManagerConfig
+) -> ActionManagerInterface:
+    manager: ActionManagerInterface = make_class_instance(".action", manager_config)
     instance_check(ActionManagerInterface, manager)
 
     for instance in manager_config.apply_to:
@@ -146,19 +156,19 @@ def configure_manager(instances: dict[str, DetectionLoop], manager_config: Manag
     return manager
 
 
-def configure(config: GlobalConfig) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
+def configure(
+    config: GlobalConfig,
+) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
     all_instances: dict[str, DetectionLoop] = {}
     for name, loop_config in config.instances.items():
         logger = get_rotating_logger(
             name,
             Path(config.logging.directory) / name,
-            f'{name}.log',
+            f"{name}.log",
             max_bytes=config.logging.max_size,
-            backup_count=config.logging.backup_count
+            backup_count=config.logging.backup_count,
         )
-        detection_model, camera, action = (
-            configure_loop(loop_config)
-        )
+        detection_model, camera, action = configure_loop(loop_config)
         detection_loop = DetectionLoop(
             detection_model,
             camera,

@@ -8,7 +8,6 @@ from ..detection import FinderResult, ExtractorResult
 
 
 class ActionInterface(ABC):
-
     def __init__(self):
         self.manager: Optional["ActionManagerInterface"] = None
 
@@ -40,7 +39,6 @@ class ActionInterface(ABC):
 
 
 class ActionManagerInterface(ABC):
-
     def __init__(self):
         self.cameras: set[ActionInterface] = set()
 

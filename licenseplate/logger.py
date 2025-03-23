@@ -17,7 +17,14 @@ def get_standard_logger(name: str, output) -> logging.Logger:
     return detection_logger
 
 
-def get_rotating_logger(name: str, log_dir: Path, log_filename: str, level=logging.DEBUG, max_bytes: int = 1024 * 1024, backup_count: int = 5):
+def get_rotating_logger(
+    name: str,
+    log_dir: Path,
+    log_filename: str,
+    level=logging.DEBUG,
+    max_bytes: int = 1024 * 1024,
+    backup_count: int = 5,
+):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
