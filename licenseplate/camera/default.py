@@ -15,7 +15,7 @@ class DefaultCameraInterface(CameraInterface):
             raise IOError(f"Camera {self.device} cannot be accessed.")
 
     @classmethod
-    def get_instance(cls, /, device: int) -> Self:
+    def get_instance(cls, *, device: int) -> Self:
         return cls(device)
 
     def get_frame(self) -> NDArray:
