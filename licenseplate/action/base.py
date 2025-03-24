@@ -16,10 +16,10 @@ class ActionInterface(ABC):
             raise RuntimeError("Manager has already been registered for this instance.")
         self.manager = manager
 
-    def report_to_manager(self, *args, **kwargs) -> Any:
+    def report_to_manager(self, **kwargs) -> Any:
         if self.manager is None:
             raise RuntimeError("Manager for this class is not set.")
-        return self.manager.raport(self, *args, **kwargs)
+        return self.manager.raport(self, **kwargs)
 
     @classmethod
     def get_instance(cls, **kwargs) -> Self:
@@ -53,5 +53,5 @@ class ActionManagerInterface(ABC):
         return cls()
 
     @abstractmethod
-    def raport(self, action_instance: ActionInterface, *args, **kwargs) -> Any:
+    def raport(self, action_instance: ActionInterface, **kwargs) -> Any:
         pass
