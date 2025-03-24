@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 from numpy.typing import NDArray
+from pydantic import BaseModel
 
 from ..detection import FinderResult, ExtractorResult
 
@@ -16,10 +17,10 @@ class ActionInterface(ABC):
             raise RuntimeError("Manager has already been registered for this instance.")
         self.manager = manager
 
-    def report_to_manager(self, **kwargs) -> Any:
+    def report_to_manager(self, data: BaseModel) -> Any:
         if self.manager is None:
             raise RuntimeError("Manager for this class is not set.")
-        return self.manager.raport(self, **kwargs)
+        return self.manager.raport(self, data)
 
     @classmethod
     def get_instance(cls, **kwargs) -> Self:
@@ -62,5 +63,5 @@ class ActionManagerInterface(ABC):
         return cls()
 
     @abstractmethod
-    def raport(self, action_instance: ActionInterface, **kwargs) -> Any:
+    def raport(self, action_instance: ActionInterface, data: BaseModel) -> Any:
         pass

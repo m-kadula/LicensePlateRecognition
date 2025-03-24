@@ -4,11 +4,21 @@ from pathlib import Path
 from logging import Logger
 
 from numpy.typing import NDArray
+from pydantic import BaseModel
 import cv2
 
 from .base import ActionInterface, ActionManagerInterface
 from ..detection import FinderResult, ExtractorResult, visualise
 from ..logger import get_standard_logger
+
+
+class _Message(BaseModel):
+    detected: list[tuple[FinderResult, list[ExtractorResult]]]
+    visualised: NDArray
+    time: datetime
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class LocalSave(ActionInterface):
@@ -32,7 +42,7 @@ class LocalSave(ActionInterface):
         visualised = visualise(
             image, detected_plates, show_debug_boxes=self.debug_boxes
         )
-        self.report_to_manager(detected=detected_plates, visualised=visualised, time=time)
+        self.report_to_manager(_Message(detected=detected_plates, visualised=visualised, time=time))
 
 
 class LocalSaveManager(ActionManagerInterface):
@@ -65,17 +75,14 @@ class LocalSaveManager(ActionManagerInterface):
         for io in self.ios:
             io.close()
 
-    def raport(self, action_instance: ActionInterface, **kwargs) -> Any:
-        detected: list[tuple[FinderResult, list[ExtractorResult]]] = kwargs['detected']
-        visualised: NDArray = kwargs['visualised']
-        time: datetime = kwargs['time']
+    def raport(self, action_instance: ActionInterface, data: _Message) -> Any:
         logger = self.loggers[action_instance]
 
-        detected_plates = len(detected)
-        detected_text = sum(len(x[1]) for x in detected)
-        photo_file_path = self.logging_path / self.actions[action_instance] / f"{time.isoformat()}.jpg"
+        detected_plates = len(data.detected)
+        detected_text = sum(len(x[1]) for x in data.detected)
+        photo_file_path = self.logging_path / self.actions[action_instance] / f"{data.time.isoformat()}.jpg"
 
-        cv2.imwrite(str(photo_file_path), visualised)
+        cv2.imwrite(str(photo_file_path), data.visualised)
 
         logger.info(
             f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
