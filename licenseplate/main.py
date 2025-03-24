@@ -63,9 +63,8 @@ example = GlobalConfig(
                 kwargs={"device": 0},
             ),
             action_interface=InterfaceConfig(
-                which=".localsave.LocalSaveInterface",
+                which=".localsave.LocalSave",
                 kwargs={
-                    "save_directory": str(Path(__file__).parents[1] / "detected"),
                     "show_debug_boxes": True,
                 },
             ),
@@ -74,7 +73,15 @@ example = GlobalConfig(
             max_fps=30,
         )
     },
-    managers=None,
+    managers={
+        "manager1": ManagerConfig(
+            which=".localsave.LocalSaveManager",
+            apply_to=[InterfaceConfig(which="camera1")],
+            kwargs={
+                "logging_path": str(Path(__file__).parents[1] / "detected")
+            }
+        )
+    },
 )
 
 
