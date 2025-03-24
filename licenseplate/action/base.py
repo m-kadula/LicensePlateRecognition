@@ -29,7 +29,7 @@ class ActionInterface(ABC):
     def action_if_found(
         self,
         image: NDArray,
-        detected_plated: list[tuple[FinderResult, list[ExtractorResult]]],
+        detected_plates: list[tuple[FinderResult, list[ExtractorResult]]],
         time: datetime,
     ):
         pass
@@ -40,13 +40,22 @@ class ActionInterface(ABC):
 
 class ActionManagerInterface(ABC):
     def __init__(self):
-        self.cameras: set[ActionInterface] = set()
+        self.actions: dict[ActionInterface, str] = {}
+        self.registration_open = True
 
-    def register_camera(self, camera: ActionInterface, **kwargs):
-        if camera in self.cameras:
-            raise RuntimeError(f"Camera {camera} has already been registered")
-        camera.register_manager(self)
-        self.cameras.add(camera)
+    def register_camera(self, name: str, action: ActionInterface, **kwargs):
+        if not self.registration_open:
+            raise RuntimeError("Registration for this manager has been closed")
+        if action in self.actions:
+            raise RuntimeError(f"Camera {action} has already been registered")
+        action.register_manager(self)
+        self.actions[action] = name
+
+    def finish_registration(self):
+        self.registration_open = False
+
+    def destroy(self):
+        pass
 
     @classmethod
     def get_instance(cls, **kwargs) -> Self:

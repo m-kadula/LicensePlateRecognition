@@ -1,4 +1,3 @@
-import logging
 import threading
 from datetime import datetime
 from time import sleep
@@ -12,7 +11,7 @@ def detection_iteration(
     detection_model: PlateDetectionModel,
     camera: CameraInterface,
     action: ActionInterface,
-) -> tuple[datetime, float, int, int]:
+) -> float:
     frame_time = datetime.now()
 
     frame = camera.get_frame()
@@ -24,7 +23,7 @@ def detection_iteration(
 
     lasted = (datetime.now() - frame_time).total_seconds()
 
-    return frame_time, lasted, len(plates), sum(len(x[1]) for x in plates)
+    return lasted
 
 
 class DetectionLoop:
@@ -53,24 +52,13 @@ class DetectionLoop:
                 if self._stop_now:
                     break
 
-            frame_time, lasted, detected_plates, detected_text = detection_iteration(
-                self.detection_model, self.camera, self.action
-            )
+            lasted = detection_iteration(self.detection_model, self.camera, self.action)
 
             iteration += 1
             fps_sum += 1 / lasted
-            # if self.logger is not None and detected_plates > 0:
-            #     self.logger.info(
-            #         f"Iteration: {iteration}, FPS now: {round(1 / lasted, 2)}, FPS average: {round(fps_sum / iteration, 2)}\n"
-            #         f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
-            #     )
             if 1 / self.max_fps - lasted > 0:
                 sleep(1 / self.max_fps - lasted)
 
-        # if self.logger is not None:
-        #     self.logger.info(
-        #         f"Loop ended after {iteration} iterations with the average of {round(fps_sum / iteration, 2)} FPS."
-        #     )
 
     def start_thread(self):
         if self.thread.is_alive():

@@ -138,7 +138,8 @@ def configure_manager(
         if instance.which not in instances.keys():
             raise ValueError(f"No instance with name {instance.which} defined.")
         kwargs = instance.kwargs if instance.kwargs is not None else {}
-        manager.register_camera(instances[instance.which].action, **kwargs)
+        manager.register_camera(instance.which, instances[instance.which].action, **kwargs)
+    manager.finish_registration()
 
     return manager
 
@@ -207,6 +208,8 @@ def main():
         except KeyboardInterrupt:
             for instance in instances.values():
                 instance.stop_thread()
+            for manager in managers.values():
+                manager.destroy()
 
 
 if __name__ == "__main__":
