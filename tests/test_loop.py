@@ -56,28 +56,13 @@ def test_loop():
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.8,
     )
-    action1 = LocalSave(
-        model1,
-        MockCameraInterface(image_dir / 'val'),
-        30,
-        True
-    )
-    action2 = LocalSave(
-        model2,
-        MockCameraInterface(image_dir / 'train'),
-        30,
-        True
-    )
-    action3 = LocalSave(
-        model3,
-        MockCameraInterface(image_dir / 'val'),
-        30,
-        False
-    )
+    action1 = LocalSave(model1, MockCameraInterface(image_dir / "val"), 30, True)
+    action2 = LocalSave(model2, MockCameraInterface(image_dir / "train"), 30, True)
+    action3 = LocalSave(model3, MockCameraInterface(image_dir / "val"), 30, False)
     manager = LocalSaveManager(results_path)
-    manager.register_camera('camera1', action1, {})
-    manager.register_camera('camera2', action2, {})
-    manager.register_camera('camera3', action3, {})
+    manager.register_camera("camera1", action1, {})
+    manager.register_camera("camera2", action2, {})
+    manager.register_camera("camera3", action3, {})
     manager.finish_registration()
     manager.start()
     sleep(10)

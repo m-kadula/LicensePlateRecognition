@@ -59,7 +59,12 @@ class LocalSave(ActionInterface):
             image, detected_plates, show_debug_boxes=self.debug_boxes
         )
         self.report_to_manager(
-            _Message(detected=detected_plates, original_image=image, visualised=visualised, time=time)
+            _Message(
+                detected=detected_plates,
+                original_image=image,
+                visualised=visualised,
+                time=time,
+            )
         )
 
     def loop(self):
