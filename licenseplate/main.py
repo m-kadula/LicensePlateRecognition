@@ -50,7 +50,7 @@ class GlobalConfig(BaseModel):
 example = GlobalConfig(
     instances={
         "camera1": LoopConfig(
-            yolo_weights_path=str(Path(__file__).parents[1] / "weights.pt"),
+            yolo_weights_path=str(Path().cwd() / "weights.pt"),
             general_preprocessor=InterfaceConfig(
                 which=".base.IdentityPreprocessor",
                 kwargs=None,
@@ -78,7 +78,7 @@ example = GlobalConfig(
         "manager1": ManagerConfig(
             which=".localsave.LocalSaveManager",
             apply_to=[InterfaceConfig(which="camera1")],
-            kwargs={"logging_path": str(Path(__file__).parents[1] / "detected")},
+            kwargs={"logging_path": str(Path.cwd() / "detected")},
         )
     },
 )
