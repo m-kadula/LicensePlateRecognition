@@ -3,6 +3,8 @@ from typing import Any, Optional
 from pathlib import Path
 from string import ascii_uppercase, digits
 from argparse import ArgumentParser
+import signal
+from time import sleep
 
 import yaml
 from pydantic import BaseModel
@@ -214,12 +216,15 @@ def main():
         for manager in managers.values():
             manager.start()
 
-        try:
-            while True:
-                input()
-        except KeyboardInterrupt:
-            for manager in managers.values():
-                manager.stop()
+        def interrupt_handler(signum, frame):
+            for m in managers.values():
+                m.stop()
+            exit(0)
+
+        signal.signal(signal.SIGINT, interrupt_handler)
+
+        while True:
+            sleep(1)
 
 
 if __name__ == "__main__":
