@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self, Any
 
 import cv2
 import numpy as np
@@ -15,7 +15,12 @@ class DefaultCameraInterface(CameraInterface):
             raise IOError(f"Camera {self.device} cannot be accessed.")
 
     @classmethod
-    def get_instance(cls, *, device: int) -> Self:
+    def get_instance(cls, kwargs: dict[str, Any]) -> Self:
+        if 'device' not in kwargs:
+            raise ValueError("Field 'device' is required (int)")
+        device = kwargs['device']
+        if not isinstance(device, int):
+            raise TypeError("device has to be an int")
         return cls(device)
 
     def get_frame(self) -> NDArray:

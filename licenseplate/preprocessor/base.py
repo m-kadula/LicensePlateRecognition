@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Self, Any
 from abc import ABC, abstractmethod
 
 from numpy.typing import NDArray
@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 
 class PreprocessorInterface(ABC):
     @classmethod
-    def get_instance(cls, **kwargs) -> Self:
+    def get_instance(cls, kwargs: dict[str, Any]) -> Self:
         return cls()
 
     @abstractmethod

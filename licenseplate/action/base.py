@@ -23,7 +23,7 @@ class ActionInterface(ABC):
         return self.manager.raport(self, data)
 
     @classmethod
-    def get_instance(cls, **kwargs) -> Self:
+    def get_instance(cls, kwargs: dict[str, Any]) -> Self:
         return cls()
 
     @abstractmethod
@@ -44,7 +44,7 @@ class ActionManagerInterface(ABC):
         self.actions: dict[ActionInterface, str] = {}
         self.registration_open = True
 
-    def register_camera(self, name: str, action: ActionInterface, **kwargs):
+    def register_camera(self, name: str, action: ActionInterface, kwargs: dict[str, Any]):
         if not self.registration_open:
             raise RuntimeError("Registration for this manager has been closed")
         if action in self.actions:
@@ -59,7 +59,7 @@ class ActionManagerInterface(ABC):
         pass
 
     @classmethod
-    def get_instance(cls, **kwargs) -> Self:
+    def get_instance(cls, kwargs: dict[str, Any]) -> Self:
         return cls()
 
     @abstractmethod

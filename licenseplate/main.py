@@ -87,16 +87,16 @@ example = GlobalConfig(
 
 def dynamic_import_class(package: str, module_path: str):
     *path, class_name = module_path.split(".")
-    path = ".".join(path)
+    path_str = ".".join(path)
 
-    module = importlib.import_module(package=package, name=path)
+    module = importlib.import_module(package=package, name=path_str)
     return getattr(module, class_name)
 
 
 def make_class_instance(package: str, config: InterfaceConfig | ManagerConfig):
     class_ = dynamic_import_class(__package__ + package, config.which)
     kwargs = config.kwargs if config.kwargs is not None else {}
-    return class_.get_instance(**kwargs)
+    return class_.get_instance(kwargs)
 
 
 def instance_check(expected: type, got: Any):
@@ -145,7 +145,7 @@ def configure_manager(
         if instance.which not in instances.keys():
             raise ValueError(f"No instance with name {instance.which} defined.")
         kwargs = instance.kwargs if instance.kwargs is not None else {}
-        manager.register_camera(instance.which, instances[instance.which].action, **kwargs)
+        manager.register_camera(instance.which, instances[instance.which].action, kwargs)
     manager.finish_registration()
 
     return manager
