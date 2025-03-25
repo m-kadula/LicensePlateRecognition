@@ -8,7 +8,7 @@ from ..camera.base import CameraInterface
 
 class ActionInterface(ABC):
     def __init__(self, detection_model: PlateDetectionModel, camera: CameraInterface, max_fps: int):
-        self.manager: Optional["ActionManagerInterface"] = None
+        self.manager: Optional["BaseActionManager"] = None
         self.detection_model = detection_model
         self.camera = camera
         self.max_fps = max_fps
@@ -16,7 +16,7 @@ class ActionInterface(ABC):
         self.thread = threading.Thread(target=self.loop)
         self._stop_now = False
 
-    def register_manager(self, manager: "ActionManagerInterface"):
+    def register_manager(self, manager: "BaseActionManager"):
         if self.manager is not None:
             raise RuntimeError("Manager has already been registered for this instance.")
         self.manager = manager
@@ -51,7 +51,7 @@ class ActionInterface(ABC):
         self.thread.join()
 
 
-class ActionManagerInterface(ABC):
+class BaseActionManager:
     def __init__(self):
         self.actions: dict[ActionInterface, str] = {}
         self.registration_open = True
@@ -87,6 +87,5 @@ class ActionManagerInterface(ABC):
     def get_instance(cls, kwargs: dict[str, Any]) -> Self:
         return cls()
 
-    @abstractmethod
     def raport(self, action_instance: ActionInterface, data: Any) -> Any:
-        pass
+        return None

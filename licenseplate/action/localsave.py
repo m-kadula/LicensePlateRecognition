@@ -8,7 +8,7 @@ from numpy.typing import NDArray
 from pydantic import BaseModel
 import cv2
 
-from .base import ActionInterface, ActionManagerInterface
+from .base import ActionInterface, BaseActionManager
 from ..detection import PlateDetectionModel
 from ..camera.base import CameraInterface
 from ..detection import FinderResult, ExtractorResult, visualise
@@ -71,7 +71,7 @@ class LocalSave(ActionInterface):
                 sleep(1 / self.max_fps - lasted)
 
 
-class LocalSaveManager(ActionManagerInterface):
+class LocalSaveManager(BaseActionManager):
 
     def __init__(self, logging_path: Path):
         super().__init__()
