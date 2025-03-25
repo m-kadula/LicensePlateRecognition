@@ -16,6 +16,7 @@ from ..logger import get_standard_logger
 
 
 class _Message(BaseModel):
+    original_image: NDArray
     detected: list[tuple[FinderResult, list[ExtractorResult]]]
     visualised: NDArray
     time: datetime
@@ -58,7 +59,7 @@ class LocalSave(ActionInterface):
             image, detected_plates, show_debug_boxes=self.debug_boxes
         )
         self.report_to_manager(
-            _Message(detected=detected_plates, visualised=visualised, time=time)
+            _Message(detected=detected_plates, original_image=image, visualised=visualised, time=time)
         )
 
     def loop(self):
@@ -85,9 +86,10 @@ class LocalSave(ActionInterface):
 
 
 class LocalSaveManager(BaseActionManager):
-    def __init__(self, logging_path: Path):
+    def __init__(self, logging_path: Path, log_original: bool = False):
         super().__init__()
         self.logging_path = logging_path
+        self.log_original = log_original
         self.loggers: dict[ActionInterface, Logger] = {}
         self.ios: list[TextIO] = []
 
@@ -101,7 +103,10 @@ class LocalSaveManager(BaseActionManager):
         logging_path = kwargs["logging_path"]
         if not isinstance(logging_path, str):
             raise TypeError("logging_path has to be a string")
-        return cls(Path(logging_path).resolve())
+        log_original = kwargs.get("log_original", False)
+        if not isinstance(log_original, bool):
+            raise TypeError("log_original has to be a bool")
+        return cls(Path(logging_path).resolve(), log_original)
 
     def register_camera(
         self, name: str, action: ActionInterface, kwargs: dict[str, Any]
@@ -133,6 +138,14 @@ class LocalSaveManager(BaseActionManager):
         )
 
         cv2.imwrite(str(photo_file_path), data.visualised)
+
+        if self.log_original:
+            og_photo_file_path = (
+                self.logging_path
+                / self.actions[action_instance]
+                / f"{data.time.isoformat()}-original.jpg"
+            )
+            cv2.imwrite(str(og_photo_file_path), data.original_image)
 
         logger.info(
             f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
