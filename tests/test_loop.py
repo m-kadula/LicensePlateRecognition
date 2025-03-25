@@ -1,6 +1,7 @@
 from pathlib import Path
 import shutil
 from time import sleep
+from string import ascii_uppercase, digits
 
 from numpy.typing import NDArray
 import cv2
@@ -20,14 +21,16 @@ class MockCameraInterface(CameraInterface):
     def __init__(self, image_dir: Path):
         self.image_dir = image_dir
         assert self.image_dir.exists() and self.image_dir.is_dir()
-        self.image_iterator = self.image_dir.iterdir()
-        self.first = next(self.image_iterator)
+        self.image_iterator = None
 
     def get_frame(self) -> NDArray:
+        if self.image_iterator is None:
+            self.image_iterator = self.image_dir.iterdir()
         try:
             image_dir = next(self.image_iterator)
         except StopIteration:
-            image_dir = self.first
+            self.image_iterator = self.image_dir.iterdir()
+            image_dir = next(self.image_iterator)
         return cv2.imread(image_dir)
 
 
@@ -36,18 +39,21 @@ def test_loop():
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),
+        text_allow_list=ascii_uppercase + digits,
         required_confidence=0.0,
     )
     model2 = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),
+        text_allow_list=ascii_uppercase + digits,
         required_confidence=0.5,
     )
     model3 = PlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),
+        text_allow_list=ascii_uppercase + digits,
         required_confidence=0.8,
     )
     action1 = LocalSave(
@@ -74,7 +80,7 @@ def test_loop():
     manager.register_camera('camera3', action3, {})
     manager.finish_registration()
     manager.start()
-    sleep(5)
+    sleep(10)
     manager.stop()
 
 
