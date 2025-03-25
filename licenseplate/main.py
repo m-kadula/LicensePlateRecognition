@@ -50,7 +50,7 @@ class GlobalConfig(BaseModel):
 example = GlobalConfig(
     instances={
         "camera1": LoopConfig(
-            yolo_weights_path=str(Path().cwd() / "weights.pt"),
+            yolo_weights_path=str(Path.cwd() / "weights.pt"),
             general_preprocessor=InterfaceConfig(
                 which=".base.IdentityPreprocessor",
                 kwargs=None,
