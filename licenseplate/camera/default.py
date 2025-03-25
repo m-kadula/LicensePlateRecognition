@@ -16,9 +16,9 @@ class DefaultCameraInterface(CameraInterface):
 
     @classmethod
     def get_instance(cls, kwargs: dict[str, Any]) -> Self:
-        if 'device' not in kwargs:
+        if "device" not in kwargs:
             raise ValueError("Field 'device' is required (int)")
-        device = kwargs['device']
+        device = kwargs["device"]
         if not isinstance(device, int):
             raise TypeError("device has to be an int")
         return cls(device)

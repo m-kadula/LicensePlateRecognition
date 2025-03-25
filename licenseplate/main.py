@@ -78,9 +78,7 @@ example = GlobalConfig(
         "manager1": ManagerConfig(
             which=".localsave.LocalSaveManager",
             apply_to=[InterfaceConfig(which="camera1")],
-            kwargs={
-                "logging_path": str(Path(__file__).parents[1] / "detected")
-            }
+            kwargs={"logging_path": str(Path(__file__).parents[1] / "detected")},
         )
     },
 )
@@ -132,10 +130,15 @@ def configure_action(
     action_class: type[ActionInterface] = dynamic_import_class(
         __package__ + ".action", loop_config.action_interface.which
     )
-    action_kwargs = loop_config.action_interface.kwargs if loop_config.action_interface.kwargs is not None else {}
+    action_kwargs = (
+        loop_config.action_interface.kwargs
+        if loop_config.action_interface.kwargs is not None
+        else {}
+    )
     action = action_class.get_instance(
         detection_model, camera, loop_config.max_fps, action_kwargs
     )
+    instance_check(ActionInterface, action)
 
     return action
 
@@ -171,7 +174,7 @@ def configure(
             all_managers[name] = manager
 
     default_manager = BaseActionManager()
-    all_managers['__default__'] = default_manager
+    all_managers["__default__"] = default_manager
 
     for name, instance in all_instances.items():
         if instance.manager is None:

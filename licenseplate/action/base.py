@@ -7,7 +7,12 @@ from ..camera.base import CameraInterface
 
 
 class ActionInterface(ABC):
-    def __init__(self, detection_model: PlateDetectionModel, camera: CameraInterface, max_fps: int):
+    def __init__(
+        self,
+        detection_model: PlateDetectionModel,
+        camera: CameraInterface,
+        max_fps: int,
+    ):
         self.manager: Optional["BaseActionManager"] = None
         self.detection_model = detection_model
         self.camera = camera
@@ -27,7 +32,13 @@ class ActionInterface(ABC):
         return self.manager.raport(self, data)
 
     @classmethod
-    def get_instance(cls, detection_model: PlateDetectionModel, camera: CameraInterface, max_fps: int, kwargs: dict[str, Any]) -> Self:
+    def get_instance(
+        cls,
+        detection_model: PlateDetectionModel,
+        camera: CameraInterface,
+        max_fps: int,
+        kwargs: dict[str, Any],
+    ) -> Self:
         return cls(detection_model, camera, max_fps)
 
     @abstractmethod
@@ -36,7 +47,9 @@ class ActionInterface(ABC):
 
     def start_thread(self):
         if self.manager is None:
-            raise RuntimeError("Tried to start an instance without a registered manager")
+            raise RuntimeError(
+                "Tried to start an instance without a registered manager"
+            )
         if self.thread.is_alive():
             raise RuntimeError("The thread is already running.")
         with self.lock:
@@ -57,7 +70,9 @@ class BaseActionManager:
         self.registration_open = True
         self._is_running = False
 
-    def register_camera(self, name: str, action: ActionInterface, kwargs: dict[str, Any]):
+    def register_camera(
+        self, name: str, action: ActionInterface, kwargs: dict[str, Any]
+    ):
         if not self.registration_open:
             raise RuntimeError("Registration for this manager has been closed.")
         if action in self.actions.keys():
