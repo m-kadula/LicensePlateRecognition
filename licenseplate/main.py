@@ -3,14 +3,15 @@ from typing import Any, Optional
 from pathlib import Path
 from string import ascii_uppercase, digits
 from argparse import ArgumentParser
+import signal
+from time import sleep
 
 import yaml
 from pydantic import BaseModel
 
-from .loop import DetectionLoop
 from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
-from .action.base import ActionInterface, ActionManagerInterface
+from .action.base import ActionInterface, BaseActionManager
 from .preprocessor.base import PreprocessorInterface
 
 
@@ -77,9 +78,7 @@ example = GlobalConfig(
         "manager1": ManagerConfig(
             which=".localsave.LocalSaveManager",
             apply_to=[InterfaceConfig(which="camera1")],
-            kwargs={
-                "logging_path": str(Path(__file__).parents[1] / "detected")
-            }
+            kwargs={"logging_path": str(Path(__file__).parents[1] / "detected")},
         )
     },
 )
@@ -104,9 +103,9 @@ def instance_check(expected: type, got: Any):
         raise TypeError(f"Expected type {expected}, got {type(got)}.")
 
 
-def configure_loop(
+def configure_action(
     loop_config: LoopConfig,
-) -> tuple[PlateDetectionModel, CameraInterface, ActionInterface]:
+) -> ActionInterface:
     general_preprocessor: PreprocessorInterface = make_class_instance(
         ".preprocessor", loop_config.general_preprocessor
     )
@@ -119,10 +118,6 @@ def configure_loop(
         ".camera", loop_config.camera_interface
     )
     instance_check(CameraInterface, camera)
-    action: ActionInterface = make_class_instance(
-        ".action", loop_config.action_interface
-    )
-    instance_check(ActionInterface, action)
 
     detection_model = PlateDetectionModel(
         yolo_weights_path=Path(loop_config.yolo_weights_path).resolve(),
@@ -132,20 +127,33 @@ def configure_loop(
         required_confidence=loop_config.required_confidence,
     )
 
-    return detection_model, camera, action
+    action_class: type[ActionInterface] = dynamic_import_class(
+        __package__ + ".action", loop_config.action_interface.which
+    )
+    action_kwargs = (
+        loop_config.action_interface.kwargs
+        if loop_config.action_interface.kwargs is not None
+        else {}
+    )
+    action = action_class.get_instance(
+        detection_model, camera, loop_config.max_fps, action_kwargs
+    )
+    instance_check(ActionInterface, action)
+
+    return action
 
 
 def configure_manager(
-    instances: dict[str, DetectionLoop], manager_config: ManagerConfig
-) -> ActionManagerInterface:
-    manager: ActionManagerInterface = make_class_instance(".action", manager_config)
-    instance_check(ActionManagerInterface, manager)
+    instances: dict[str, ActionInterface], manager_config: ManagerConfig
+) -> BaseActionManager:
+    manager: BaseActionManager = make_class_instance(".action", manager_config)
+    instance_check(BaseActionManager, manager)
 
     for instance in manager_config.apply_to:
         if instance.which not in instances.keys():
             raise ValueError(f"No instance with name {instance.which} defined.")
         kwargs = instance.kwargs if instance.kwargs is not None else {}
-        manager.register_camera(instance.which, instances[instance.which].action, kwargs)
+        manager.register_camera(instance.which, instances[instance.which], kwargs)
     manager.finish_registration()
 
     return manager
@@ -153,25 +161,27 @@ def configure_manager(
 
 def configure(
     config: GlobalConfig,
-) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
-    all_instances: dict[str, DetectionLoop] = {}
+) -> dict[str, BaseActionManager]:
+    all_instances: dict[str, ActionInterface] = {}
     for name, loop_config in config.instances.items():
-        detection_model, camera, action = configure_loop(loop_config)
-        detection_loop = DetectionLoop(
-            detection_model,
-            camera,
-            action,
-            loop_config.max_fps,
-        )
-        all_instances[name] = detection_loop
+        action = configure_action(loop_config)
+        all_instances[name] = action
 
-    all_managers: dict[str, ActionManagerInterface] = {}
+    all_managers: dict[str, BaseActionManager] = {}
     if config.managers is not None:
         for name, manager_config in config.managers.items():
             manager = configure_manager(all_instances, manager_config)
             all_managers[name] = manager
 
-    return all_instances, all_managers
+    default_manager = BaseActionManager()
+    all_managers["__default__"] = default_manager
+
+    for name, instance in all_instances.items():
+        if instance.manager is None:
+            default_manager.register_camera(name, instance, {})
+    default_manager.finish_registration()
+
+    return all_managers
 
 
 def main():
@@ -204,19 +214,20 @@ def main():
             data = yaml.load(f, yaml.SafeLoader)
         global_config = GlobalConfig.model_validate(data)
 
-        instances, managers = configure(global_config)
+        managers = configure(global_config)
 
-        for instance in instances.values():
-            instance.start_thread()
+        for manager in managers.values():
+            manager.start()
 
-        try:
-            while True:
-                input()
-        except KeyboardInterrupt:
-            for instance in instances.values():
-                instance.stop_thread()
-            for manager in managers.values():
-                manager.destroy()
+        def interrupt_handler(signum, frame):
+            for m in managers.values():
+                m.stop()
+            exit(0)
+
+        signal.signal(signal.SIGINT, interrupt_handler)
+
+        while True:
+            sleep(1)
 
 
 if __name__ == "__main__":
