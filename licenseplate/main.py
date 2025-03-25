@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 import yaml
 from pydantic import BaseModel
 
-from .loop import DetectionLoop
 from .detection import PlateDetectionModel
 from .camera.base import CameraInterface
 from .action.base import ActionInterface, ActionManagerInterface
@@ -106,7 +105,7 @@ def instance_check(expected: type, got: Any):
 
 def configure_loop(
     loop_config: LoopConfig,
-) -> tuple[PlateDetectionModel, CameraInterface, ActionInterface]:
+) -> ActionInterface:
     general_preprocessor: PreprocessorInterface = make_class_instance(
         ".preprocessor", loop_config.general_preprocessor
     )
@@ -119,10 +118,6 @@ def configure_loop(
         ".camera", loop_config.camera_interface
     )
     instance_check(CameraInterface, camera)
-    action: ActionInterface = make_class_instance(
-        ".action", loop_config.action_interface
-    )
-    instance_check(ActionInterface, action)
 
     detection_model = PlateDetectionModel(
         yolo_weights_path=Path(loop_config.yolo_weights_path).resolve(),
@@ -132,11 +127,19 @@ def configure_loop(
         required_confidence=loop_config.required_confidence,
     )
 
-    return detection_model, camera, action
+    action_class: type[ActionInterface] = dynamic_import_class(
+        __package__ + ".action", loop_config.action_interface.which
+    )
+    action_kwargs = loop_config.action_interface.kwargs if loop_config.action_interface.kwargs is not None else {}
+    action = action_class.get_instance(
+        detection_model, camera, loop_config.max_fps, action_kwargs
+    )
+
+    return action
 
 
 def configure_manager(
-    instances: dict[str, DetectionLoop], manager_config: ManagerConfig
+    instances: dict[str, ActionInterface], manager_config: ManagerConfig
 ) -> ActionManagerInterface:
     manager: ActionManagerInterface = make_class_instance(".action", manager_config)
     instance_check(ActionManagerInterface, manager)
@@ -145,7 +148,7 @@ def configure_manager(
         if instance.which not in instances.keys():
             raise ValueError(f"No instance with name {instance.which} defined.")
         kwargs = instance.kwargs if instance.kwargs is not None else {}
-        manager.register_camera(instance.which, instances[instance.which].action, kwargs)
+        manager.register_camera(instance.which, instances[instance.which], kwargs)
     manager.finish_registration()
 
     return manager
@@ -153,17 +156,11 @@ def configure_manager(
 
 def configure(
     config: GlobalConfig,
-) -> tuple[dict[str, DetectionLoop], dict[str, ActionManagerInterface]]:
-    all_instances: dict[str, DetectionLoop] = {}
+) -> tuple[dict[str, ActionInterface], dict[str, ActionManagerInterface]]:
+    all_instances: dict[str, ActionInterface] = {}
     for name, loop_config in config.instances.items():
-        detection_model, camera, action = configure_loop(loop_config)
-        detection_loop = DetectionLoop(
-            detection_model,
-            camera,
-            action,
-            loop_config.max_fps,
-        )
-        all_instances[name] = detection_loop
+        action = configure_loop(loop_config)
+        all_instances[name] = action
 
     all_managers: dict[str, ActionManagerInterface] = {}
     if config.managers is not None:
@@ -206,17 +203,15 @@ def main():
 
         instances, managers = configure(global_config)
 
-        for instance in instances.values():
-            instance.start_thread()
+        for manager in managers.values():
+            manager.start()
 
         try:
             while True:
                 input()
         except KeyboardInterrupt:
-            for instance in instances.values():
-                instance.stop_thread()
             for manager in managers.values():
-                manager.destroy()
+                manager.stop()
 
 
 if __name__ == "__main__":
