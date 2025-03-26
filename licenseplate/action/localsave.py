@@ -32,9 +32,11 @@ class LocalSave(ActionInterface):
         camera: CameraInterface,
         max_fps: int,
         show_debug_boxes: bool = False,
+        save_all_photos: bool = False,
     ):
         super().__init__(detection_model, camera, max_fps)
         self.debug_boxes = show_debug_boxes
+        self.save_all_photos = save_all_photos
 
     @classmethod
     def get_instance(
@@ -47,7 +49,10 @@ class LocalSave(ActionInterface):
         show_debug_boxes = kwargs["show_debug_boxes"]
         if not isinstance(show_debug_boxes, bool):
             raise TypeError("show_debug_boxes has to be a bool")
-        return cls(detection_model, camera, max_fps, show_debug_boxes)
+        save_all_photos = kwargs.get("save_all_photos", False)
+        if not isinstance(save_all_photos, bool):
+            raise TypeError("show_debug_boxes has to be a bool")
+        return cls(detection_model, camera, max_fps, show_debug_boxes, save_all_photos)
 
     def action_if_found(
         self,
@@ -80,7 +85,7 @@ class LocalSave(ActionInterface):
 
             frame = self.camera.get_frame()
             plates = self.detection_model.detect_plates(frame)
-            if plates:
+            if plates or self.save_all_photos:
                 self.action_if_found(frame, plates, frame_time)
             lasted = (datetime.now() - frame_time).total_seconds()
 
