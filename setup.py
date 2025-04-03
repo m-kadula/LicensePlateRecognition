@@ -5,7 +5,7 @@ setup(
     version="0.1.0",
     description="A daemon for license plate recognition from a live camera feed",
     author="Mateusz Kadula",
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests*", "*/tests*"]),
     entry_points={
         "console_scripts": [
             "licenseplated=licenseplate.main:main",
@@ -21,6 +21,5 @@ setup(
         "pydantic",
         "opencv-python",
         "easyocr",
-        # "picamera2",
     ],
 )

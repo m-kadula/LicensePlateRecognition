@@ -192,12 +192,12 @@ cython_debug/
 
 # Custom
 raw
+raw.zip
 runs
 dataset/images
 dataset/labels
 dataset/license_plate.yaml
 detected
-tests/processed
 tests/results
 licenseplate_log
 config.yaml
