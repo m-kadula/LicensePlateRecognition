@@ -13,14 +13,16 @@ class RaspberryCameraInterface(base.CameraInterface):
                 "size": (1920, 1080),
                 "format": "RGB888",
             },
-            buffer_count=3
+            buffer_count=3,
         )
         self.picamera.configure(config)
 
-        self.picamera.set_controls({
-            "AfMode": 2,
-            "AwbMode": 0,
-        })
+        self.picamera.set_controls(
+            {
+                "AfMode": 2,
+                "AwbMode": 0,
+            }
+        )
 
         self.picamera.start()
 

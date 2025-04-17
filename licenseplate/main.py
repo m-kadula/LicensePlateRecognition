@@ -225,6 +225,7 @@ def main():
             exit(0)
 
         signal.signal(signal.SIGINT, interrupt_handler)
+        signal.signal(signal.SIGTERM, interrupt_handler)
 
         while True:
             sleep(1)

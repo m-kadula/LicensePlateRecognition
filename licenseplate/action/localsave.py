@@ -20,6 +20,7 @@ class _Message(BaseModel):
     detected: list[tuple[FinderResult, list[ExtractorResult]]]
     visualised: NDArray
     time: datetime
+    framerate: float
 
     class Config:
         arbitrary_types_allowed = True
@@ -54,27 +55,8 @@ class LocalSave(ActionInterface):
             raise TypeError("show_debug_boxes has to be a bool")
         return cls(detection_model, camera, max_fps, show_debug_boxes, save_all_photos)
 
-    def action_if_found(
-        self,
-        image: NDArray,
-        detected_plates: list[tuple[FinderResult, list[ExtractorResult]]],
-        time: datetime,
-    ):
-        visualised = visualise(
-            image, detected_plates, show_debug_boxes=self.debug_boxes
-        )
-        self.report_to_manager(
-            _Message(
-                detected=detected_plates,
-                original_image=image,
-                visualised=visualised,
-                time=time,
-            )
-        )
-
     def loop(self):
-        fps_sum = 0.0
-        iteration = 0
+        lasted = 1 / self.max_fps
 
         while True:
             with self.lock:
@@ -86,11 +68,18 @@ class LocalSave(ActionInterface):
             frame = self.camera.get_frame()
             plates = self.detection_model.detect_plates(frame)
             if plates or self.save_all_photos:
-                self.action_if_found(frame, plates, frame_time)
+                visualised = visualise(frame, plates, show_debug_boxes=self.debug_boxes)
+                self.report_to_manager(
+                    _Message(
+                        detected=plates,
+                        original_image=frame,
+                        visualised=visualised,
+                        time=frame_time,
+                        framerate=1 / lasted,
+                    )
+                )
             lasted = (datetime.now() - frame_time).total_seconds()
 
-            iteration += 1
-            fps_sum += 1 / lasted
             if 1 / self.max_fps - lasted > 0:
                 sleep(1 / self.max_fps - lasted)
 
@@ -158,6 +147,6 @@ class LocalSaveManager(BaseActionManager):
             cv2.imwrite(str(og_photo_file_path), data.original_image)
 
         logger.info(
-            f"Detected plates: {detected_plates}, detected text: {detected_text}.\n"
+            f"Detected plates: {detected_plates}, detected text: {detected_text}, FPS: {round(data.framerate, 1)}\n"
             f"Photo saved in: {photo_file_path}\n"
         )
