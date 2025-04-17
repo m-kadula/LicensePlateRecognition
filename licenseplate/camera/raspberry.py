@@ -8,12 +8,12 @@ class RaspberryCameraInterface(base.CameraInterface):
     def __init__(self):
         self.picamera = Picamera2()
 
-        config = self.picamera.create_still_configuration(
+        config = self.picamera.create_video_configuration(
             main={
-                "size": (1920, 1080),
+                "size": (1280, 720),
                 "format": "RGB888",
             },
-            buffer_count=3,
+            buffer_count=4
         )
         self.picamera.configure(config)
 
