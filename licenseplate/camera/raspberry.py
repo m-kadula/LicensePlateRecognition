@@ -1,6 +1,5 @@
 from numpy.typing import NDArray
 from picamera2 import Picamera2, Preview
-import cv2
 
 from . import base
 
@@ -18,15 +17,13 @@ class RaspberryCameraInterface(base.CameraInterface):
         )
         self.picamera.configure(config)
 
-        controls = {
+        self.picamera.set_controls({
             "AfMode": 2,
-            "AfTrigger": 0,
-        }
-        self.picamera.set_controls(controls)
+            "AwbMode": 0,
+        })
 
         self.picamera.start()
 
     def get_frame(self) -> NDArray:
         frame = self.picamera.capture_array()
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         return frame
