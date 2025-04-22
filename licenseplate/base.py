@@ -1,10 +1,44 @@
 import threading
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Callable
 
 from numpy.typing import NDArray
 
-from .detection import PlateDetectionModel
+
+@dataclass
+class FinderResult:
+    confidence: float
+    box: tuple[int, int, int, int]
+
+
+@dataclass
+class ExtractorResult:
+    text: str
+    confidence: float
+    box: tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]]
+
+
+@dataclass
+class SingleDetectionResult:
+    cropped_plate_image: NDArray
+    text_preprocessed_image: NDArray
+    finder_result: FinderResult
+    ext_results: list[ExtractorResult]
+
+
+@dataclass
+class DetectionResults:
+    original_image: NDArray
+    general_preprocessed_image: NDArray
+    det_results: list[SingleDetectionResult]
+
+
+class PlateDetectionModel(ABC):
+
+    @abstractmethod
+    def detect_plates(self, image: NDArray) -> DetectionResults:
+        pass
 
 
 class CameraInterface(ABC):
@@ -60,3 +94,26 @@ class ActionInterface(ABC):
             self._stop_now = True
         self._thread.join()
         self.camera.stop()
+
+
+class ManagerInterface:
+    def __init__(self):
+        self.cameras: dict[str, ActionInterface] = {}
+        self._is_running = False
+
+    def is_running(self) -> bool:
+        return self._is_running
+
+    def start(self):
+        if self._is_running:
+            raise RuntimeError("The manager has already been stared.")
+        for camera in self.cameras.values():
+            camera.start_thread()
+        self._is_running = True
+
+    def stop(self):
+        if not self._is_running:
+            raise RuntimeError("Attempted to stop a manager that has not been started")
+        for camera in self.cameras.values():
+            camera.stop_thread()
+        self._is_running = False

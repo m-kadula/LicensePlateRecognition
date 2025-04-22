@@ -8,15 +8,15 @@ import json
 
 import cv2
 
-from .base import ActionInterface, CameraInterface
+from .base import ActionInterface, CameraInterface, ManagerInterface, DetectionResults
 from .logger import get_standard_logger
-from .detection import PlateDetectionModel, DetectionResults
+from .detection import YoloPlateDetectionModel, visualise_all
 
 
 class LocalSave(ActionInterface):
     def __init__(
         self,
-        detection_model: PlateDetectionModel,
+        detection_model: YoloPlateDetectionModel,
         camera: CameraInterface,
         max_fps: int,
         logging_root: Path,
@@ -55,14 +55,14 @@ class LocalSave(ActionInterface):
         augmented_plate_path = self.augmented_plates_root / time.isoformat()
 
         cv2.imwrite(str(original_image_path), plates.original_image)
-        cv2.imwrite(str(marked_image_path), plates.visualise(self.debug_boxes))
+        cv2.imwrite(str(marked_image_path), visualise_all(plates, self.debug_boxes))
 
         if self.log_cropped_plates:
             cropped_plate_path.mkdir()
-            log_content["cropped_plates_directory"] = str(cropped_plate_path)
+            log_content["cropped_plates_directory"] = str(cropped_plate_path.relative_to(self.logging_root))
         if self.log_augmented_plates:
             augmented_plate_path.mkdir()
-            log_content["augmented_plates_directory"] = str(augmented_plate_path)
+            log_content["augmented_plates_directory"] = str(augmented_plate_path.relative_to(self.logging_root))
 
         log_content["original_image"] = str(original_image_path.relative_to(self.logging_root))
         log_content["marked_image"] = str(marked_image_path.relative_to(self.logging_root))
@@ -85,10 +85,10 @@ class LocalSave(ActionInterface):
             if self.log_cropped_plates:
 
                 cv2.imwrite(str(cropped_plate_path / f"{i}.jpg"), detection_result.cropped_plate_image)
-                detection_info["plate_image"] = str(cropped_plate_path / f"{i}.jpg")
+                detection_info["plate_image"] = str((cropped_plate_path / f"{i}.jpg").relative_to(self.logging_root))
             if self.log_augmented_plates:
                 cv2.imwrite(str(augmented_plate_path / f"{i}.jpg"), detection_result.text_preprocessed_image)
-                detection_info["augmented_plate_image"] = str(augmented_plate_path / f"{i}.jpg")
+                detection_info["augmented_plate_image"] = str((augmented_plate_path / f"{i}.jpg").relative_to(self.logging_root))
             detection_summary.append(detection_info)
 
         log_content["detected"] = detection_summary
@@ -119,7 +119,6 @@ class LocalSave(ActionInterface):
         super().start_thread()
 
     def stop_thread(self):
-        assert isinstance(self.logger_io, TextIO)
         self.logger_io.close()
         super().stop_thread()
 
@@ -127,7 +126,7 @@ class LocalSave(ActionInterface):
 @dataclass
 class LocalSaveManagerArguments:
     name: str
-    detection_model: PlateDetectionModel
+    detection_model: YoloPlateDetectionModel
     camera: CameraInterface
     max_fps: int
     show_debug_boxes: bool = False
@@ -135,12 +134,12 @@ class LocalSaveManagerArguments:
     log_augmented_plates: bool = False
 
 
-class LocalSaveManager:
+class LocalSaveManager(ManagerInterface):
 
     def __init__(self, cameras: list[LocalSaveManagerArguments], logging_root: Path):
-        self.cameras: dict[str, LocalSave] = {}
+        super().__init__()
         self.logging_root = logging_root.resolve()
-        self._is_running = False
+        self.logging_root.mkdir(exist_ok=True)
         for args in cameras:
             camera = LocalSave(
                 detection_model=args.detection_model,
@@ -152,20 +151,3 @@ class LocalSaveManager:
                 log_augmented_plates=args.log_augmented_plates
             )
             self.cameras[args.name] = camera
-
-    def is_running(self) -> bool:
-        return self._is_running
-
-    def start(self):
-        if self._is_running:
-            raise RuntimeError("The manager has already been stared.")
-        for camera in self.cameras.values():
-            camera.start_thread()
-        self._is_running = True
-
-    def stop(self):
-        if not self._is_running:
-            raise RuntimeError("Attempted to stop a manager that has not been started")
-        for camera in self.cameras.values():
-            camera.stop_thread()
-        self._is_running = False

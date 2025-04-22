@@ -9,7 +9,7 @@ import cv2
 from licenseplate.action.localsave import LocalSaveManager
 from licenseplate.action import LocalSave
 from licenseplate.base import CameraInterface
-from licenseplate.detection import PlateDetectionModel
+from licenseplate.detection import YoloPlateDetectionModel
 from licenseplate.preprocessor.base import IdentityPreprocessor
 from licenseplate.preprocessor.polish_plate import PolishLicensePlatePreprocessor
 
@@ -36,21 +36,21 @@ class MockCameraInterface(CameraInterface):
 
 
 def test_loop():
-    model1 = PlateDetectionModel(
+    model1 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.0,
     )
-    model2 = PlateDetectionModel(
+    model2 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.5,
     )
-    model3 = PlateDetectionModel(
+    model3 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
         IdentityPreprocessor(),
         PolishLicensePlatePreprocessor(),

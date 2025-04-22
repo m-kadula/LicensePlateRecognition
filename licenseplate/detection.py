@@ -1,45 +1,31 @@
 from typing import Optional
 from pathlib import Path
-from dataclasses import dataclass
 
 from numpy.typing import NDArray
 import cv2
 import easyocr
 from ultralytics import YOLO
 
-from .base import preprocessor_type
-
-
-@dataclass
-class FinderResult:
-    confidence: float
-    box: tuple[int, int, int, int]
+from . import base
 
 
 class LicensePlateFinder:
     def __init__(self, weights_path: Path):
         self.model = YOLO(weights_path)
 
-    def run(self, image: NDArray) -> list[FinderResult]:
+    def run(self, image: NDArray) -> list[base.FinderResult]:
         result = self.model(image, verbose=False)[0]
         out = []
 
         for box in result.boxes:
             x1, y1, x2, y2 = map(int, box.xyxy[0])
             confidence = box.conf[0].item()
-            out.append(FinderResult(confidence=confidence, box=(x1, y1, x2, y2)))
+            out.append(base.FinderResult(confidence=confidence, box=(x1, y1, x2, y2)))
 
         return sorted(out, key=lambda x: x.confidence, reverse=True)
 
-    def __call__(self, image: NDArray) -> list[FinderResult]:
+    def __call__(self, image: NDArray) -> list[base.FinderResult]:
         return self.run(image)
-
-
-@dataclass
-class ExtractorResult:
-    text: str
-    confidence: float
-    box: tuple[tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]]
 
 
 class TextExtractor:
@@ -47,7 +33,7 @@ class TextExtractor:
         self.allow_list = allow_list
         self.reader = easyocr.Reader(["en"])
 
-    def run(self, image: NDArray) -> list[ExtractorResult]:
+    def run(self, image: NDArray) -> list[base.ExtractorResult]:
         detected = self.reader.readtext(
             image, allowlist=self.allow_list, decoder="beamsearch"
         )
@@ -56,41 +42,20 @@ class TextExtractor:
         for bbox, text, confidence in detected:
             box = tuple(map(lambda x: (int(x[0]), int(x[1])), bbox))
             assert len(box) == 4
-            out.append(ExtractorResult(text=text, confidence=float(confidence), box=box))
+            out.append(base.ExtractorResult(text=text, confidence=float(confidence), box=box))
 
         return out
 
-    def __call__(self, image: NDArray) -> list[ExtractorResult]:
+    def __call__(self, image: NDArray) -> list[base.ExtractorResult]:
         return self.run(image)
 
 
-@dataclass
-class SingleDetectionResult:
-    cropped_plate_image: NDArray
-    text_preprocessed_image: NDArray
-    finder_result: FinderResult
-    ext_results: list[ExtractorResult]
-
-
-@dataclass
-class DetectionResults:
-    original_image: NDArray
-    general_preprocessed_image: NDArray
-    det_results: list[SingleDetectionResult]
-
-    def visualise(self, show_debug_boxes: bool = False) -> NDArray:
-        image = self.general_preprocessed_image.copy()
-        for detection_result in self.det_results:
-            image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
-        return image
-
-
-class PlateDetectionModel:
+class YoloPlateDetectionModel(base.PlateDetectionModel):
     def __init__(
         self,
         yolo_weights_path: Path,
-        original_frame_preprocessor: preprocessor_type,
-        license_plate_preprocessor: preprocessor_type,
+        original_frame_preprocessor: base.preprocessor_type,
+        license_plate_preprocessor: base.preprocessor_type,
         text_allow_list: Optional[str] = None,
         required_confidence: float = 0.5,
     ):
@@ -102,10 +67,10 @@ class PlateDetectionModel:
 
     def detect_plates(
         self, image: NDArray
-    ) -> DetectionResults:
+    ) -> base.DetectionResults:
         preprocessed_image = self.original_image_preprocessor(image)
         found_boxes = self.finder(preprocessed_image)
-        out = DetectionResults(original_image=image, general_preprocessed_image=preprocessed_image, det_results=[])
+        out = base.DetectionResults(original_image=image, general_preprocessed_image=preprocessed_image, det_results=[])
 
         for box in found_boxes:
             x1, y1, x2, y2 = box.box
@@ -116,7 +81,7 @@ class PlateDetectionModel:
                 filter(lambda x: x.confidence >= self.required_confidence, found_text)
             )
 
-            out.det_results.append(SingleDetectionResult(
+            out.det_results.append(base.SingleDetectionResult(
                 cropped_plate_image=cropped_image,
                 text_preprocessed_image=altered_image,
                 finder_result=box,
@@ -134,10 +99,17 @@ def convert_extractor_bbox_to_whole_image(
     return tuple(map(func, extractor_bbox_points))
 
 
+def visualise_all(result: base.DetectionResults, show_debug_boxes: bool = False) -> NDArray:
+    image = result.general_preprocessed_image.copy()
+    for detection_result in result.det_results:
+        image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
+    return image
+
+
 def visualise(
     image: NDArray,
-    finder_result: FinderResult,
-    extractor_results: list[ExtractorResult],
+    finder_result: base.FinderResult,
+    extractor_results: list[base.ExtractorResult],
     show_debug_boxes=False,
 ) -> NDArray:
     image = image.copy()
