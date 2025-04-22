@@ -54,13 +54,28 @@ class TextExtractor:
         out = []
 
         for bbox, text, confidence in detected:
-            box = tuple(map(tuple, bbox))
-            out.append(ExtractorResult(text=text, confidence=confidence, box=box))
+            box = tuple(map(lambda x: (int(x[0]), int(x[1])), bbox))
+            out.append(ExtractorResult(text=text, confidence=float(confidence), box=box))
 
         return out
 
     def __call__(self, image: NDArray) -> list[ExtractorResult]:
         return self.run(image)
+
+
+@dataclass
+class SingleDetectionResult:
+    cropped_plate_image: NDArray
+    text_preprocessed_image: NDArray
+    finder_result: FinderResult
+    ext_results: list[ExtractorResult]
+
+
+@dataclass
+class DetectionResults:
+    original_image: NDArray
+    general_preprocessed_image: NDArray
+    det_results: list[SingleDetectionResult]
 
 
 class PlateDetectionModel:
@@ -80,21 +95,26 @@ class PlateDetectionModel:
 
     def detect_plates(
         self, image: NDArray
-    ) -> list[tuple[FinderResult, list[ExtractorResult]]]:
-        image = self.original_image_preprocessor(image)
-        found_boxes = self.finder(image)
-        out = []
+    ) -> DetectionResults:
+        preprocessed_image = self.original_image_preprocessor(image)
+        found_boxes = self.finder(preprocessed_image)
+        out = DetectionResults(original_image=image, general_preprocessed_image=preprocessed_image, det_results=[])
 
         for box in found_boxes:
             x1, y1, x2, y2 = box.box
-            cropped_image = image[y1:y2, x1:x2]
+            cropped_image = preprocessed_image[y1:y2, x1:x2]
             altered_image = self.license_plate_preprocessor(cropped_image)
             found_text = self.extractor(altered_image)
             found_text = list(
                 filter(lambda x: x.confidence >= self.required_confidence, found_text)
             )
 
-            out.append((box, found_text))
+            out.det_results.append(SingleDetectionResult(
+                cropped_plate_image=cropped_image,
+                text_preprocessed_image=altered_image,
+                finder_result=box,
+                ext_results=found_text
+            ))
 
         return out
 
@@ -107,41 +127,48 @@ def convert_extractor_bbox_to_whole_image(
     return tuple(map(func, extractor_bbox_points))
 
 
+def visualise_all(detection_results: DetectionResults, show_debug_boxes: bool = True) -> NDArray:
+    image = detection_results.general_preprocessed_image.copy()
+    for detection_result in detection_results.det_results:
+        image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
+    return image
+
+
 def visualise(
     image: NDArray,
-    results: list[tuple[FinderResult, list[ExtractorResult]]],
+    finder_result: FinderResult,
+    extractor_results: list[ExtractorResult],
     show_debug_boxes=False,
 ) -> NDArray:
     image = image.copy()
-    for finder_result, extractor_results in results:
-        if show_debug_boxes:
-            debug_box = finder_result.box
-            cv2.rectangle(
-                image,
-                (debug_box[0], debug_box[1]),
-                (debug_box[2], debug_box[3]),
-                (255, 0, 0),
-                2,
-            )
-        for extractor_result in extractor_results:
-            box = convert_extractor_bbox_to_whole_image(
-                finder_result.box, extractor_result.box
-            )
-            confidence = extractor_result.confidence
-            text = extractor_result.text
+    if show_debug_boxes:
+        debug_box = finder_result.box
+        cv2.rectangle(
+            image,
+            (debug_box[0], debug_box[1]),
+            (debug_box[2], debug_box[3]),
+            (255, 0, 0),
+            2,
+        )
+    for extractor_result in extractor_results:
+        box = convert_extractor_bbox_to_whole_image(
+            finder_result.box, extractor_result.box
+        )
+        confidence = extractor_result.confidence
+        text = extractor_result.text
 
-            top_left, _, bottom_right, _ = box
-            top_left = tuple(map(int, top_left))
-            bottom_right = tuple(map(int, bottom_right))
+        top_left, _, bottom_right, _ = box
+        top_left = tuple(map(int, top_left))
+        bottom_right = tuple(map(int, bottom_right))
 
-            cv2.rectangle(image, top_left, bottom_right, (0, 255, 0), 2)
-            cv2.putText(
-                image,
-                f"{text} ({confidence:.2f})",
-                (top_left[0], top_left[1] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.7,
-                (0, 255, 0),
-                2,
-            )
+        cv2.rectangle(image, top_left, bottom_right, (0, 255, 0), 2)
+        cv2.putText(
+            image,
+            f"{text} ({confidence:.2f})",
+            (top_left[0], top_left[1] - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 255, 0),
+            2,
+        )
     return image
