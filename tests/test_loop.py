@@ -6,8 +6,9 @@ from string import ascii_uppercase, digits
 from numpy.typing import NDArray
 import cv2
 
-from licenseplate.action.localsave import LocalSave, LocalSaveManager
-from licenseplate.camera.base import CameraInterface
+from licenseplate.action.localsave import LocalSaveManager
+from licenseplate.action import LocalSave
+from licenseplate.base import CameraInterface
 from licenseplate.detection import PlateDetectionModel
 from licenseplate.preprocessor.base import IdentityPreprocessor
 from licenseplate.preprocessor.polish_plate import PolishLicensePlatePreprocessor

@@ -7,7 +7,7 @@ import cv2
 import easyocr
 from ultralytics import YOLO
 
-from .preprocessor.base import PreprocessorInterface
+from .base import preprocessor_type
 
 
 @dataclass
@@ -67,8 +67,8 @@ class PlateDetectionModel:
     def __init__(
         self,
         yolo_weights_path: Path,
-        original_frame_preprocessor: PreprocessorInterface,
-        license_plate_preprocessor: PreprocessorInterface,
+        original_frame_preprocessor: preprocessor_type,
+        license_plate_preprocessor: preprocessor_type,
         text_allow_list: Optional[str] = None,
         required_confidence: float = 0.5,
     ):
