@@ -55,6 +55,7 @@ class TextExtractor:
 
         for bbox, text, confidence in detected:
             box = tuple(map(lambda x: (int(x[0]), int(x[1])), bbox))
+            assert len(box) == 4
             out.append(ExtractorResult(text=text, confidence=float(confidence), box=box))
 
         return out
@@ -76,6 +77,12 @@ class DetectionResults:
     original_image: NDArray
     general_preprocessed_image: NDArray
     det_results: list[SingleDetectionResult]
+
+    def visualise(self, show_debug_boxes: bool = False) -> NDArray:
+        image = self.general_preprocessed_image.copy()
+        for detection_result in self.det_results:
+            image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
+        return image
 
 
 class PlateDetectionModel:
@@ -125,13 +132,6 @@ def convert_extractor_bbox_to_whole_image(
     f_xtl, f_ytl, f_xbr, f_xbr = finder_bbox_xyxy
     func = lambda p: (f_xtl + p[0], f_ytl + p[1])
     return tuple(map(func, extractor_bbox_points))
-
-
-def visualise_all(detection_results: DetectionResults, show_debug_boxes: bool = True) -> NDArray:
-    image = detection_results.general_preprocessed_image.copy()
-    for detection_result in detection_results.det_results:
-        image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
-    return image
 
 
 def visualise(
