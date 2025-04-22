@@ -35,14 +35,12 @@ class DetectionResults:
 
 
 class PlateDetectionModel(ABC):
-
     @abstractmethod
     def detect_plates(self, image: NDArray) -> DetectionResults:
         pass
 
 
 class CameraInterface(ABC):
-
     def start(self) -> None:
         pass
 

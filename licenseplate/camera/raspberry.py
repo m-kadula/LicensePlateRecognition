@@ -13,7 +13,7 @@ class RaspberryCameraInterface(CameraInterface):
                 "size": frame_dim,
                 "format": "RGB888",
             },
-            buffer_count=buffer_count
+            buffer_count=buffer_count,
         )
         self.picamera.configure(config)
 

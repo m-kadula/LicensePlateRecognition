@@ -31,11 +31,15 @@ class CameraConfig(BaseModel):
         if self.camera_interface.strip() == "default":
             kwargs_parsed = self._DefaultCameraArgs.model_validate(kwargs)
             from .camera.default import DefaultCameraInterface
+
             return DefaultCameraInterface(kwargs_parsed.device)
         elif self.camera_interface.strip() == "raspberry":
             kwargs_parsed = self._RaspberryCameraArgs.model_validate(kwargs)
             from .camera.raspberry import RaspberryCameraInterface
-            return RaspberryCameraInterface((kwargs_parsed.height, kwargs_parsed.width), kwargs_parsed.buffer_count)
+
+            return RaspberryCameraInterface(
+                (kwargs_parsed.height, kwargs_parsed.width), kwargs_parsed.buffer_count
+            )
         else:
             raise ValueError("Available camera interfaces: [default, raspberry]")
 
@@ -47,15 +51,23 @@ class LocalSaveCameraConfig(BaseModel):
     log_cropped_plates: Optional[bool] = None
     log_augmented_plates: Optional[bool] = None
 
-    def make(self, name: str, detection_model: detection.YoloPlateDetectionModel) -> action.LocalSaveManagerArguments:
+    def make(
+        self, name: str, detection_model: detection.YoloPlateDetectionModel
+    ) -> action.LocalSaveManagerArguments:
         return action.LocalSaveManagerArguments(
             name=name,
             detection_model=detection_model,
             camera=self.camera.make(),
             max_fps=self.max_fps,
-            show_debug_boxes=self.show_debug_boxes if self.show_debug_boxes is not None else False,
-            log_cropped_plates=self.log_cropped_plates if self.log_cropped_plates is not None else False,
-            log_augmented_plates=self.log_augmented_plates if self.log_augmented_plates is not None else False,
+            show_debug_boxes=self.show_debug_boxes
+            if self.show_debug_boxes is not None
+            else False,
+            log_cropped_plates=self.log_cropped_plates
+            if self.log_cropped_plates is not None
+            else False,
+            log_augmented_plates=self.log_augmented_plates
+            if self.log_augmented_plates is not None
+            else False,
         )
 
 
@@ -76,10 +88,11 @@ class LocalSaveConfig(BaseModel):
             text_allow_list=self.text_allow_list,
             required_confidence=self.required_confidence,
         )
-        parsed_cameras = [camera.make(name, detection_model) for name, camera in self.cameras.items()]
+        parsed_cameras = [
+            camera.make(name, detection_model) for name, camera in self.cameras.items()
+        ]
         return action.LocalSaveManager(
-            cameras=parsed_cameras,
-            logging_root=Path(self.logging_root).resolve()
+            cameras=parsed_cameras, logging_root=Path(self.logging_root).resolve()
         )
 
 
@@ -91,9 +104,9 @@ class Config(BaseModel):
 
 
 def get_preprocessor(name: str) -> base.preprocessor_type:
-    if name == 'identity':
+    if name == "identity":
         return preprocessor.preprocess_identity
-    elif name == 'black_and_white':
+    elif name == "black_and_white":
         return preprocessor.preprocess_black_on_white
     else:
         raise ValueError("Preprocessors allowed: [identity, black_and_white].")
@@ -102,12 +115,12 @@ def get_preprocessor(name: str) -> base.preprocessor_type:
 example_config = Config(
     instances={
         "instance1": LocalSaveConfig(
-            yolo_weights_path=str(Path.cwd() / 'weights.pt'),
-            original_preprocessor='identity',
-            plate_preprocessor='black_and_white',
+            yolo_weights_path=str(Path.cwd() / "weights.pt"),
+            original_preprocessor="identity",
+            plate_preprocessor="black_and_white",
             text_allow_list=string.ascii_uppercase + string.digits,
             required_confidence=0.5,
-            logging_root=str(Path.cwd() / 'detected'),
+            logging_root=str(Path.cwd() / "detected"),
             cameras={
                 "camera1": LocalSaveCameraConfig(
                     camera=CameraConfig(
@@ -119,7 +132,7 @@ example_config = Config(
                     log_cropped_plates=True,
                     log_augmented_plates=True,
                 )
-            }
+            },
         )
     }
 )
@@ -143,7 +156,6 @@ def main():
     )
 
     args = parser.parse_args()
-
 
     if args.command == "generate":
         if args.file_name.exists():

@@ -42,7 +42,9 @@ class TextExtractor:
         for bbox, text, confidence in detected:
             box = tuple(map(lambda x: (int(x[0]), int(x[1])), bbox))
             assert len(box) == 4
-            out.append(base.ExtractorResult(text=text, confidence=float(confidence), box=box))
+            out.append(
+                base.ExtractorResult(text=text, confidence=float(confidence), box=box)
+            )
 
         return out
 
@@ -65,12 +67,14 @@ class YoloPlateDetectionModel(base.PlateDetectionModel):
         self.license_plate_preprocessor = license_plate_preprocessor
         self.required_confidence = required_confidence
 
-    def detect_plates(
-        self, image: NDArray
-    ) -> base.DetectionResults:
+    def detect_plates(self, image: NDArray) -> base.DetectionResults:
         preprocessed_image = self.original_image_preprocessor(image)
         found_boxes = self.finder(preprocessed_image)
-        out = base.DetectionResults(original_image=image, general_preprocessed_image=preprocessed_image, det_results=[])
+        out = base.DetectionResults(
+            original_image=image,
+            general_preprocessed_image=preprocessed_image,
+            det_results=[],
+        )
 
         for box in found_boxes:
             x1, y1, x2, y2 = box.box
@@ -81,12 +85,14 @@ class YoloPlateDetectionModel(base.PlateDetectionModel):
                 filter(lambda x: x.confidence >= self.required_confidence, found_text)
             )
 
-            out.det_results.append(base.SingleDetectionResult(
-                cropped_plate_image=cropped_image,
-                text_preprocessed_image=altered_image,
-                finder_result=box,
-                ext_results=found_text
-            ))
+            out.det_results.append(
+                base.SingleDetectionResult(
+                    cropped_plate_image=cropped_image,
+                    text_preprocessed_image=altered_image,
+                    finder_result=box,
+                    ext_results=found_text,
+                )
+            )
 
         return out
 
@@ -99,10 +105,17 @@ def convert_extractor_bbox_to_whole_image(
     return tuple(map(func, extractor_bbox_points))
 
 
-def visualise_all(result: base.DetectionResults, show_debug_boxes: bool = False) -> NDArray:
+def visualise_all(
+    result: base.DetectionResults, show_debug_boxes: bool = False
+) -> NDArray:
     image = result.general_preprocessed_image.copy()
     for detection_result in result.det_results:
-        image = visualise(image, detection_result.finder_result, detection_result.ext_results, show_debug_boxes)
+        image = visualise(
+            image,
+            detection_result.finder_result,
+            detection_result.ext_results,
+            show_debug_boxes,
+        )
     return image
 
 
