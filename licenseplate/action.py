@@ -1,5 +1,6 @@
 from datetime import datetime
 from pathlib import Path
+from dataclasses import dataclass
 from time import sleep
 from typing import TextIO, Any
 from logging import Logger
@@ -92,6 +93,7 @@ class LocalSave(ActionInterface):
 
         log_content["detected"] = detection_summary
 
+        assert isinstance(self.logger, Logger)
         self.logger.info(json.dumps(log_content, indent=4))
 
     def loop(self):
@@ -117,5 +119,53 @@ class LocalSave(ActionInterface):
         super().start_thread()
 
     def stop_thread(self):
+        assert isinstance(self.logger_io, TextIO)
         self.logger_io.close()
         super().stop_thread()
+
+
+@dataclass
+class LocalSaveManagerArguments:
+    name: str
+    detection_model: PlateDetectionModel
+    camera: CameraInterface
+    max_fps: int
+    show_debug_boxes: bool = False
+    log_cropped_plates: bool = False
+    log_augmented_plates: bool = False
+
+
+class LocalSaveManager:
+
+    def __init__(self, cameras: list[LocalSaveManagerArguments], logging_root: Path):
+        self.cameras: dict[str, LocalSave] = {}
+        self.logging_root = logging_root.resolve()
+        self._is_running = False
+        for args in cameras:
+            camera = LocalSave(
+                detection_model=args.detection_model,
+                camera=args.camera,
+                max_fps=args.max_fps,
+                logging_root=self.logging_root / args.name,
+                show_debug_boxes=args.show_debug_boxes,
+                log_cropped_plates=args.log_cropped_plates,
+                log_augmented_plates=args.log_augmented_plates
+            )
+            self.cameras[args.name] = camera
+
+    def is_running(self) -> bool:
+        return self._is_running
+
+    def start(self):
+        if self._is_running:
+            raise RuntimeError("The manager has already been stared.")
+        for camera in self.cameras.values():
+            camera.start_thread()
+        self._is_running = True
+
+    def stop(self):
+        if not self._is_running:
+            raise RuntimeError("Attempted to stop a manager that has not been started")
+        for camera in self.cameras.values():
+            camera.stop_thread()
+        self._is_running = False

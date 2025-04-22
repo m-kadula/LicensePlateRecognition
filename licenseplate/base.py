@@ -50,6 +50,7 @@ class ActionInterface(ABC):
             raise RuntimeError("The thread is already running.")
         with self._lock:
             self._stop_now = False
+        self.camera.start()
         self._thread.start()
 
     def stop_thread(self):
@@ -58,3 +59,4 @@ class ActionInterface(ABC):
         with self._lock:
             self._stop_now = True
         self._thread.join()
+        self.camera.stop()

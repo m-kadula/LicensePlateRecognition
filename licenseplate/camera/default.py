@@ -11,6 +11,7 @@ class DefaultCameraInterface(CameraInterface):
         self.cap: cv2.VideoCapture | None = None
 
     def get_frame(self) -> NDArray:
+        assert isinstance(self.cap, cv2.VideoCapture)
         ret, frame = self.cap.read()
         if not ret:
             print("Failed to grab a frame.")
@@ -23,4 +24,5 @@ class DefaultCameraInterface(CameraInterface):
             raise IOError(f"Camera {self.device} cannot be accessed.")
 
     def stop(self) -> None:
+        assert isinstance(self.cap, cv2.VideoCapture)
         self.cap.release()
