@@ -51,6 +51,7 @@ class LocalSave(ActionInterface):
             "time": time.isoformat(),
             "results": [],
             "FPS": round(fps_now, 2),
+            "logger_name": self.logger.name,
         }
 
         original_image_path = self.original_image_root / f"{time.isoformat()}.jpg"
@@ -134,12 +135,12 @@ class LocalSave(ActionInterface):
 
     def start_thread(self):
         self.logger_io = open(self.logging_root / "detected-plates.log", "+a")
-        self.logger = get_standard_logger(self.logging_root.parts[1], self.logger_io)
+        self.logger = get_standard_logger(self.logging_root.parts[-1], self.logger_io)
         super().start_thread()
 
     def stop_thread(self):
-        self.logger_io.close()
         super().stop_thread()
+        self.logger_io.close()
 
 
 @dataclass

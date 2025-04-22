@@ -6,12 +6,10 @@ from string import ascii_uppercase, digits
 from numpy.typing import NDArray
 import cv2
 
-from licenseplate.action.localsave import LocalSaveManager
-from licenseplate.action import LocalSave
+from licenseplate.action import LocalSaveManager, LocalSaveManagerArguments
 from licenseplate.base import CameraInterface
 from licenseplate.detection import YoloPlateDetectionModel
-from licenseplate.preprocessor.base import IdentityPreprocessor
-from licenseplate.preprocessor.polish_plate import PolishLicensePlatePreprocessor
+from licenseplate.preprocessor import preprocess_identity, preprocess_black_on_white
 
 engine_dir = Path(__file__).parents[1] / "runs/detect/train/weights/best.pt"
 results_path = Path(__file__).parents[0] / "results"
@@ -38,33 +36,55 @@ class MockCameraInterface(CameraInterface):
 def test_loop():
     model1 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
-        IdentityPreprocessor(),
-        PolishLicensePlatePreprocessor(),
+        preprocess_identity,
+        preprocess_black_on_white,
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.0,
     )
     model2 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
-        IdentityPreprocessor(),
-        PolishLicensePlatePreprocessor(),
+        preprocess_identity,
+        preprocess_black_on_white,
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.5,
     )
     model3 = YoloPlateDetectionModel(
         Path(__file__).parents[1] / "runs/detect/train/weights/best.pt",
-        IdentityPreprocessor(),
-        PolishLicensePlatePreprocessor(),
+        preprocess_identity,
+        preprocess_black_on_white,
         text_allow_list=ascii_uppercase + digits,
         required_confidence=0.8,
     )
-    action1 = LocalSave(model1, MockCameraInterface(image_dir / "val"), 30, True)
-    action2 = LocalSave(model2, MockCameraInterface(image_dir / "train"), 30, True)
-    action3 = LocalSave(model3, MockCameraInterface(image_dir / "val"), 30, False)
-    manager = LocalSaveManager(results_path)
-    manager.register_camera("camera1", action1, {})
-    manager.register_camera("camera2", action2, {})
-    manager.register_camera("camera3", action3, {})
-    manager.finish_registration()
+    arguments = [
+        LocalSaveManagerArguments(
+            name='camera1',
+            detection_model=model1,
+            camera=MockCameraInterface(image_dir / "val"),
+            max_fps=30,
+            show_debug_boxes=True,
+            log_cropped_plates=True,
+            log_augmented_plates=True,
+        ),
+        LocalSaveManagerArguments(
+            name='camera2',
+            detection_model=model2,
+            camera=MockCameraInterface(image_dir / "train"),
+            max_fps=30,
+            show_debug_boxes=True,
+            log_cropped_plates=False,
+            log_augmented_plates=True,
+        ),
+        LocalSaveManagerArguments(
+            name='camera3',
+            detection_model=model3,
+            camera=MockCameraInterface(image_dir / "val"),
+            max_fps=30,
+            show_debug_boxes=True,
+            log_cropped_plates=False,
+            log_augmented_plates=False,
+        ),
+    ]
+    manager = LocalSaveManager(arguments, results_path)
     manager.start()
     sleep(10)
     manager.stop()
