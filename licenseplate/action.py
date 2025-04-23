@@ -47,9 +47,9 @@ class LocalSave(ActionInterface):
             self.augmented_plates_root.mkdir(exist_ok=True)
 
     def log_detection(self, time: datetime, plates: DetectionResults, fps_now: float):
+        assert self.logger is not None
         log_content: dict[str, Any] = {
             "time": time.isoformat(),
-            "results": [],
             "FPS": round(fps_now, 2),
             "logger_name": self.logger.name,
         }
@@ -140,6 +140,7 @@ class LocalSave(ActionInterface):
 
     def stop_thread(self):
         super().stop_thread()
+        assert self.logger_io is not None
         self.logger_io.close()
 
 

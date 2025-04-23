@@ -57,7 +57,7 @@ def test_loop():
     )
     arguments = [
         LocalSaveManagerArguments(
-            name='camera1',
+            name="camera1",
             detection_model=model1,
             camera=MockCameraInterface(image_dir / "val"),
             max_fps=30,
@@ -66,7 +66,7 @@ def test_loop():
             log_augmented_plates=True,
         ),
         LocalSaveManagerArguments(
-            name='camera2',
+            name="camera2",
             detection_model=model2,
             camera=MockCameraInterface(image_dir / "train"),
             max_fps=30,
@@ -75,7 +75,7 @@ def test_loop():
             log_augmented_plates=True,
         ),
         LocalSaveManagerArguments(
-            name='camera3',
+            name="camera3",
             detection_model=model3,
             camera=MockCameraInterface(image_dir / "val"),
             max_fps=30,
