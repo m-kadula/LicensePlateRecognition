@@ -97,19 +97,23 @@ class LocalSave(ActionInterface):
             }
             if self.log_cropped_plates:
                 cv2.imwrite(
-                    str(cropped_plate_path / f"{i}.jpg"),
+                    str(cropped_plate_path / f"{time.isoformat()}-{i}.jpg"),
                     detection_result.cropped_plate_image,
                 )
                 detection_info["plate_image"] = str(
-                    (cropped_plate_path / f"{i}.jpg").relative_to(self.logging_root)
+                    (cropped_plate_path / f"{time.isoformat()}-{i}.jpg").relative_to(
+                        self.logging_root
+                    )
                 )
             if self.log_augmented_plates:
                 cv2.imwrite(
-                    str(augmented_plate_path / f"{i}.jpg"),
+                    str(augmented_plate_path / f"{time.isoformat()}-{i}.jpg"),
                     detection_result.text_preprocessed_image,
                 )
                 detection_info["augmented_plate_image"] = str(
-                    (augmented_plate_path / f"{i}.jpg").relative_to(self.logging_root)
+                    (augmented_plate_path / f"{time.isoformat()}-{i}.jpg").relative_to(
+                        self.logging_root
+                    )
                 )
             detection_summary.append(detection_info)
 
