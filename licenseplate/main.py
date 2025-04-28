@@ -1,187 +1,141 @@
-import importlib
-from typing import Any, Optional
-from pathlib import Path
-from string import ascii_uppercase, digits
-from argparse import ArgumentParser
 import signal
 from time import sleep
+from typing import Optional, Any
+from pathlib import Path
+from argparse import ArgumentParser
+import string
 
 import yaml
 from pydantic import BaseModel
 
-from .detection import PlateDetectionModel
-from .camera.base import CameraInterface
-from .action.base import ActionInterface, BaseActionManager
-from .preprocessor.base import PreprocessorInterface
+from . import base
+from . import action
+from . import detection
+from . import preprocessor
 
 
-# pydantic config models
-
-
-class InterfaceConfig(BaseModel):
-    which: str
+class CameraConfig(BaseModel):
+    camera_interface: str
     kwargs: Optional[dict[str, Any]] = None
 
+    class _DefaultCameraArgs(BaseModel):
+        device: int = 0
 
-class LoopConfig(BaseModel):
+    class _RaspberryCameraArgs(BaseModel):
+        height: int = 1920
+        width: int = 1080
+        buffer_count: int = 4
+
+    def make(self) -> base.CameraInterface:
+        kwargs = self.kwargs if self.kwargs is not None else {}
+        if self.camera_interface.strip() == "default":
+            kwargs_parsed = self._DefaultCameraArgs.model_validate(kwargs)
+            from .camera.default import DefaultCameraInterface
+
+            return DefaultCameraInterface(kwargs_parsed.device)
+        elif self.camera_interface.strip() == "raspberry":
+            kwargs_parsed = self._RaspberryCameraArgs.model_validate(kwargs)
+            from .camera.raspberry import RaspberryCameraInterface
+
+            return RaspberryCameraInterface(
+                (kwargs_parsed.height, kwargs_parsed.width), kwargs_parsed.buffer_count
+            )
+        else:
+            raise ValueError("Available camera interfaces: [default, raspberry]")
+
+
+class LocalSaveCameraConfig(BaseModel):
+    camera: CameraConfig
+    max_fps: int = 30
+    show_debug_boxes: Optional[bool] = None
+    log_cropped_plates: Optional[bool] = None
+    log_augmented_plates: Optional[bool] = None
+
+    def make(
+        self, name: str, detection_model: detection.YoloPlateDetectionModel
+    ) -> action.LocalSaveManagerArguments:
+        return action.LocalSaveManagerArguments(
+            name=name,
+            detection_model=detection_model,
+            camera=self.camera.make(),
+            max_fps=self.max_fps,
+            show_debug_boxes=self.show_debug_boxes
+            if self.show_debug_boxes is not None
+            else False,
+            log_cropped_plates=self.log_cropped_plates
+            if self.log_cropped_plates is not None
+            else False,
+            log_augmented_plates=self.log_augmented_plates
+            if self.log_augmented_plates is not None
+            else False,
+        )
+
+
+class LocalSaveConfig(BaseModel):
     yolo_weights_path: str
-    general_preprocessor: InterfaceConfig
-    license_plate_preprocessor: InterfaceConfig
-    camera_interface: InterfaceConfig
-    action_interface: InterfaceConfig
-    text_allow_list: Optional[str] = None
-    required_confidence: float
-    max_fps: int
+    original_preprocessor: str
+    plate_preprocessor: str
+    text_allow_list: str | None
+    required_confidence: float = 0.5
+    logging_root: str
+    cameras: dict[str, LocalSaveCameraConfig]
+
+    def make(self) -> action.LocalSaveManager:
+        detection_model = detection.YoloPlateDetectionModel(
+            yolo_weights_path=Path(self.yolo_weights_path).resolve(),
+            original_frame_preprocessor=get_preprocessor(self.original_preprocessor),
+            license_plate_preprocessor=get_preprocessor(self.plate_preprocessor),
+            text_allow_list=self.text_allow_list,
+            required_confidence=self.required_confidence,
+        )
+        parsed_cameras = [
+            camera.make(name, detection_model) for name, camera in self.cameras.items()
+        ]
+        return action.LocalSaveManager(
+            cameras=parsed_cameras, logging_root=Path(self.logging_root).resolve()
+        )
 
 
-class ManagerConfig(BaseModel):
-    which: str
-    apply_to: list[InterfaceConfig]  # which instances to apply to
-    kwargs: Optional[dict[str, Any]] = None
+class Config(BaseModel):
+    instances: dict[str, LocalSaveConfig]
+
+    def make(self) -> dict[str, base.ManagerInterface]:
+        return {key: value.make() for key, value in self.instances.items()}
 
 
-class GlobalConfig(BaseModel):
-    instances: dict[str, LoopConfig]
-    managers: Optional[dict[str, ManagerConfig]] = None
+def get_preprocessor(name: str) -> base.preprocessor_type:
+    if name == "identity":
+        return preprocessor.preprocess_identity
+    elif name == "black_and_white":
+        return preprocessor.preprocess_black_on_white
+    else:
+        raise ValueError("Preprocessors allowed: [identity, black_and_white].")
 
 
-# example
-
-example = GlobalConfig(
+example_config = Config(
     instances={
-        "camera1": LoopConfig(
+        "instance1": LocalSaveConfig(
             yolo_weights_path=str(Path.cwd() / "weights.pt"),
-            general_preprocessor=InterfaceConfig(
-                which=".base.IdentityPreprocessor",
-                kwargs=None,
-            ),
-            license_plate_preprocessor=InterfaceConfig(
-                which=".polish_plate.PolishLicensePlatePreprocessor",
-                kwargs=None,
-            ),
-            camera_interface=InterfaceConfig(
-                which=".default.DefaultCameraInterface",
-                kwargs={"device": 0},
-            ),
-            action_interface=InterfaceConfig(
-                which=".localsave.LocalSave",
-                kwargs={
-                    "show_debug_boxes": True,
-                },
-            ),
-            text_allow_list=ascii_uppercase + digits,
+            original_preprocessor="identity",
+            plate_preprocessor="black_and_white",
+            text_allow_list=string.ascii_uppercase + string.digits,
             required_confidence=0.5,
-            max_fps=30,
+            logging_root=str(Path.cwd() / "detected"),
+            cameras={
+                "camera1": LocalSaveCameraConfig(
+                    camera=CameraConfig(
+                        camera_interface="default",
+                        kwargs={"device": 0},
+                    ),
+                    max_fps=30,
+                    show_debug_boxes=True,
+                    log_cropped_plates=True,
+                    log_augmented_plates=True,
+                )
+            },
         )
-    },
-    managers={
-        "manager1": ManagerConfig(
-            which=".localsave.LocalSaveManager",
-            apply_to=[InterfaceConfig(which="camera1")],
-            kwargs={"logging_path": str(Path.cwd() / "detected")},
-        )
-    },
+    }
 )
-
-
-def dynamic_import_class(package: str, module_path: str):
-    *path, class_name = module_path.split(".")
-    path_str = ".".join(path)
-
-    module = importlib.import_module(package=package, name=path_str)
-    return getattr(module, class_name)
-
-
-def make_class_instance(package: str, config: InterfaceConfig | ManagerConfig):
-    class_ = dynamic_import_class(__package__ + package, config.which)
-    kwargs = config.kwargs if config.kwargs is not None else {}
-    return class_.get_instance(kwargs)
-
-
-def instance_check(expected: type, got: Any):
-    if not isinstance(got, expected):
-        raise TypeError(f"Expected type {expected}, got {type(got)}.")
-
-
-def configure_action(
-    loop_config: LoopConfig,
-) -> ActionInterface:
-    general_preprocessor: PreprocessorInterface = make_class_instance(
-        ".preprocessor", loop_config.general_preprocessor
-    )
-    instance_check(PreprocessorInterface, general_preprocessor)
-    license_plate_preprocessor: PreprocessorInterface = make_class_instance(
-        ".preprocessor", loop_config.license_plate_preprocessor
-    )
-    instance_check(PreprocessorInterface, license_plate_preprocessor)
-    camera: CameraInterface = make_class_instance(
-        ".camera", loop_config.camera_interface
-    )
-    instance_check(CameraInterface, camera)
-
-    detection_model = PlateDetectionModel(
-        yolo_weights_path=Path(loop_config.yolo_weights_path).resolve(),
-        original_frame_preprocessor=general_preprocessor,
-        license_plate_preprocessor=license_plate_preprocessor,
-        text_allow_list=loop_config.text_allow_list,
-        required_confidence=loop_config.required_confidence,
-    )
-
-    action_class: type[ActionInterface] = dynamic_import_class(
-        __package__ + ".action", loop_config.action_interface.which
-    )
-    action_kwargs = (
-        loop_config.action_interface.kwargs
-        if loop_config.action_interface.kwargs is not None
-        else {}
-    )
-    action = action_class.get_instance(
-        detection_model, camera, loop_config.max_fps, action_kwargs
-    )
-    instance_check(ActionInterface, action)
-
-    return action
-
-
-def configure_manager(
-    instances: dict[str, ActionInterface], manager_config: ManagerConfig
-) -> BaseActionManager:
-    manager: BaseActionManager = make_class_instance(".action", manager_config)
-    instance_check(BaseActionManager, manager)
-
-    for instance in manager_config.apply_to:
-        if instance.which not in instances.keys():
-            raise ValueError(f"No instance with name {instance.which} defined.")
-        kwargs = instance.kwargs if instance.kwargs is not None else {}
-        manager.register_camera(instance.which, instances[instance.which], kwargs)
-    manager.finish_registration()
-
-    return manager
-
-
-def configure(
-    config: GlobalConfig,
-) -> dict[str, BaseActionManager]:
-    all_instances: dict[str, ActionInterface] = {}
-    for name, loop_config in config.instances.items():
-        action = configure_action(loop_config)
-        all_instances[name] = action
-
-    all_managers: dict[str, BaseActionManager] = {}
-    if config.managers is not None:
-        for name, manager_config in config.managers.items():
-            manager = configure_manager(all_instances, manager_config)
-            all_managers[name] = manager
-
-    default_manager = BaseActionManager()
-    all_managers["__default__"] = default_manager
-
-    for name, instance in all_instances.items():
-        if instance.manager is None:
-            default_manager.register_camera(name, instance, {})
-    default_manager.finish_registration()
-
-    return all_managers
 
 
 def main():
@@ -207,14 +161,14 @@ def main():
         if args.file_name.exists():
             raise FileExistsError(f"File {args.file_name} already exists.")
         with open(args.file_name, "w") as f:
-            yaml.dump(example.model_dump(), f)
+            yaml.dump(example_config.model_dump(), f)
 
     elif args.command == "run":
         with open(args.configuration_file) as f:
             data = yaml.load(f, yaml.SafeLoader)
-        global_config = GlobalConfig.model_validate(data)
+        global_config = Config.model_validate(data)
 
-        managers = configure(global_config)
+        managers = global_config.make()
 
         for manager in managers.values():
             manager.start()

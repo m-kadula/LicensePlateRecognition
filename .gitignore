@@ -198,6 +198,6 @@ dataset/images
 dataset/labels
 dataset/license_plate.yaml
 detected
-tests/results
-licenseplate_log
+tests/test_datasets
+tests/test_results
 config.yaml

@@ -10,8 +10,7 @@ def get_standard_logger(name: str, output) -> logging.Logger:
     detection_logger_handler = logging.StreamHandler(output)
     detection_logger_handler.setLevel(logging.DEBUG)
 
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(message)s")
-    detection_logger_handler.setFormatter(formatter)
+    detection_logger_handler.setFormatter(None)
 
     detection_logger.addHandler(detection_logger_handler)
     return detection_logger
