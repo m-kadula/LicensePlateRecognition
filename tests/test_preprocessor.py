@@ -12,6 +12,7 @@ from licenseplate import preprocessor as prc
 preprocessor_choices: dict[str, preprocessor_type] = {
     "identity": prc.preprocess_identity,
     "black-white": prc.preprocess_black_on_white,
+    "threshold": prc.simple_threshold,
 }
 
 
