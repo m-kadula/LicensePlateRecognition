@@ -108,6 +108,8 @@ def get_preprocessor(name: str) -> base.preprocessor_type:
         return preprocessor.preprocess_identity
     elif name == "black_and_white":
         return preprocessor.preprocess_black_on_white
+    elif name == "threshold":
+        return preprocessor.simple_threshold
     else:
         raise ValueError("Preprocessors allowed: [identity, black_and_white].")
 
