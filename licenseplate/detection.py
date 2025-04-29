@@ -1,5 +1,6 @@
 from typing import Optional
 from pathlib import Path
+from abc import ABC, abstractmethod
 
 from numpy.typing import NDArray
 import cv2
@@ -9,7 +10,16 @@ from ultralytics import YOLO
 from . import base
 
 
-class LicensePlateFinder:
+class PlateFinderInterface(ABC):
+    @abstractmethod
+    def run(self, image: NDArray) -> list[base.FinderResult]:
+        pass
+
+    def __call__(self, image: NDArray) -> list[base.FinderResult]:
+        return self.run(image)
+
+
+class YOLOPlateFinder(PlateFinderInterface):
     def __init__(self, weights_path: Path):
         self.model = YOLO(weights_path)
 
@@ -24,11 +34,20 @@ class LicensePlateFinder:
 
         return sorted(out, key=lambda x: x.confidence, reverse=True)
 
-    def __call__(self, image: NDArray) -> list[base.FinderResult]:
+
+# =============================================================================
+
+
+class TextExtractorInterface(ABC):
+    @abstractmethod
+    def run(self, image: NDArray) -> list[base.ExtractorResult]:
+        pass
+
+    def __call__(self, image: NDArray) -> list[base.ExtractorResult]:
         return self.run(image)
 
 
-class TextExtractor:
+class EasyOCRTextExtractor(TextExtractorInterface):
     def __init__(self, allow_list: Optional[str] = None):
         self.allow_list = allow_list
         self.reader = easyocr.Reader(["en"])
@@ -48,21 +67,21 @@ class TextExtractor:
 
         return out
 
-    def __call__(self, image: NDArray) -> list[base.ExtractorResult]:
-        return self.run(image)
+
+# =============================================================================
 
 
-class YoloPlateDetectionModel(base.PlateDetectionModel):
+class SimplePlateDetection(base.PlateDetectionModel):
     def __init__(
         self,
-        yolo_weights_path: Path,
+        plate_finder: PlateFinderInterface,
+        text_extractor: TextExtractorInterface,
         original_frame_preprocessor: base.preprocessor_type,
         license_plate_preprocessor: base.preprocessor_type,
-        text_allow_list: Optional[str] = None,
         required_confidence: float = 0.5,
     ):
-        self.finder = LicensePlateFinder(yolo_weights_path)
-        self.extractor = TextExtractor(text_allow_list)
+        self.finder = plate_finder
+        self.extractor = text_extractor
         self.original_image_preprocessor = original_frame_preprocessor
         self.license_plate_preprocessor = license_plate_preprocessor
         self.required_confidence = required_confidence
@@ -95,6 +114,29 @@ class YoloPlateDetectionModel(base.PlateDetectionModel):
             )
 
         return out
+
+
+class YoloPlateDetectionModel(SimplePlateDetection):
+    def __init__(
+        self,
+        yolo_weights_path: Path,
+        original_frame_preprocessor: base.preprocessor_type,
+        license_plate_preprocessor: base.preprocessor_type,
+        text_allow_list: Optional[str] = None,
+        required_confidence: float = 0.5,
+    ):
+        finder = YOLOPlateFinder(yolo_weights_path)
+        extractor = EasyOCRTextExtractor(text_allow_list)
+        super().__init__(
+            plate_finder=finder,
+            text_extractor=extractor,
+            original_frame_preprocessor=original_frame_preprocessor,
+            license_plate_preprocessor=license_plate_preprocessor,
+            required_confidence=required_confidence,
+        )
+
+
+# =============================================================================
 
 
 def convert_extractor_bbox_to_whole_image(

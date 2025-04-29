@@ -39,6 +39,9 @@ class PlateDetectionModel(ABC):
     def detect_plates(self, image: NDArray) -> DetectionResults:
         pass
 
+    def __call__(self, image: NDArray) -> DetectionResults:
+        return self.detect_plates(image)
+
 
 class CameraInterface(ABC):
     def start(self) -> None:
